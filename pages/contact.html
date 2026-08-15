@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact Us — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/customer.css">
+</head>
+<body>
+<div data-nexora-nav></div>
+<main class="container">
+  <section class="page-head">
+    <div class="breadcrumb"><a href="../index.html">Home</a> / Contact Us</div>
+    <h1>Contact Us</h1>
+    <p>Quick support without forcing customers to create an account.</p>
+  </section>
+
+  <section class="contact-layout">
+    <div class="contact-hero">
+      <span class="kicker">Nexora support</span>
+      <h2 style="font-size: clamp(42px, 6vw, 74px); margin:14px 0 12px;">Talk to the shop.</h2>
+      <p style="color:#c8d1d6;">Phone recommendations, delivery questions, warranty help and order support.</p>
+
+      <div class="contact-quick">
+        <a href="#">📞 Phone<br><strong>09-xxxxxxxxx</strong></a>
+        <a href="#">💬 Messenger<br><strong>Nexora Mobile</strong></a>
+        <a href="#">🟣 Viber<br><strong>09-xxxxxxxxx</strong></a>
+        <a href="#">✈ Telegram<br><strong>@nexoramobile</strong></a>
+      </div>
+
+      <div style="margin-top:22px;">
+        <strong>Opening Hours</strong><br>
+        <span style="color:#c8d1d6;">Daily · 9:00 AM – 8:00 PM</span><br><br>
+        <strong>Address</strong><br>
+        <span style="color:#c8d1d6;">Yangon, Myanmar · Replace with final shop address later</span>
+      </div>
+    </div>
+
+    <form class="card contact-card" id="contactForm">
+      <h3>Send a message</h3>
+      <input class="field" name="name" placeholder="Your name" required>
+      <input class="field" name="phone" placeholder="Phone number" required style="margin-top:10px;">
+      <input class="field" name="email" type="email" placeholder="Email (optional)" style="margin-top:10px;">
+      <textarea name="message" placeholder="How can we help?" required style="margin-top:10px;"></textarea>
+      <button class="btn primary" style="width:100%; margin-top:10px;">Send Message</button>
+    </form>
+  </section>
+</main>
+<div data-nexora-footer></div>
+
+<script src="../data/products.js"></script>
+<script src="../data/delivery.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/core/layout.js"></script>
+<script src="../js/customer/shop.js"></script>
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('../');
+</script>
+
+<script>
+  document.getElementById('contactForm').addEventListener('submit', event => {
+    event.preventDefault();
+    event.target.reset();
+    NexoraUtils.toast('Message saved for demo');
+  });
+</script>
+</body>
+</html>

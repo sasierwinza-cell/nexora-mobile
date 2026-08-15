@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wishlist — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/customer.css">
+</head>
+<body>
+<div data-nexora-nav></div>
+<main class="container">
+  <section class="page-head">
+    <div class="breadcrumb"><a href="../index.html">Home</a> / Wishlist</div>
+    <h1>Wishlist</h1>
+    <p>Saved locally for the demo version. No customer account required yet.</p>
+  </section>
+  <section class="product-grid" id="wishlistGrid"></section>
+</main>
+<div data-nexora-footer></div>
+
+<script src="../data/products.js"></script>
+<script src="../data/delivery.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/core/layout.js"></script>
+<script src="../js/customer/shop.js"></script>
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('../');
+</script>
+
+<script>
+  const ids = NexoraStore.get('nx_wishlist', []);
+  const items = ids.map(id => NexoraDB.products().find(product => product.id === id)).filter(Boolean);
+  document.getElementById('wishlistGrid').innerHTML = items.length
+    ? items.map(item => NexoraShop.productCard(item)).join('')
+    : '<div class="card" style="padding: 30px;">Your wishlist is empty.</div>';
+</script>
+</body>
+</html>

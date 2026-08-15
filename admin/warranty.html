@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IMEI & Warranty — Nexora Admin</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <a class="brand" href="dashboard.html">
+      <img src="../assets/logo/nexora-logo.png" alt="Nexora">
+      <span>Nexora</span>
+    </a>
+
+    <nav class="admin-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="pos.html">POS</a>
+      <a href="orders.html">Online Orders</a>
+      <a href="payments.html">Payment Verification</a>
+      <a href="payment-settings.html">Payment Settings</a>
+      <a href="products.html">Products / Promotions</a>
+      <a href="inventory.html">Inventory</a>
+      <a href="delivery.html">Delivery</a>
+      <a class="active" href="warranty.html">IMEI / Warranty</a>
+      <a href="returns.html">Returns / Refunds</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="reports.html">Reports</a>
+    </nav>
+
+    <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">
+      View Store ↗
+    </a>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-head">
+      <div>
+        <span class="admin-eyebrow">DEVICE IDENTITY</span>
+        <h1>IMEI & Warranty</h1>
+        <p style="color:var(--muted);">
+          Search a sold phone by IMEI and see its sale, variant and warranty expiry.
+        </p>
+      </div>
+    </div>
+
+    <section class="card panel">
+      <div class="imei-search-row">
+        <input class="field" id="imeiSearch" placeholder="Search IMEI / Serial">
+        <button class="btn primary" id="searchImei" type="button">Search</button>
+      </div>
+
+      <div id="imeiResult"></div>
+    </section>
+
+    <section class="card panel" style="margin-top:16px;">
+      <h3>Registered Sold Devices</h3>
+      <div class="device-grid" id="deviceGrid"></div>
+    </section>
+
+    <section class="card panel" style="margin-top:16px;">
+      <h3>Create Warranty Claim</h3>
+
+      <div class="form-grid two">
+        <input class="field" id="claimImei" placeholder="IMEI / Serial">
+        <input class="field" id="claimIssue" placeholder="Issue description">
+      </div>
+
+      <button class="btn" id="createClaim" type="button">
+        Submit Claim
+      </button>
+
+      <div id="claimList" style="margin-top:14px;"></div>
+    </section>
+  </main>
+</div>
+
+<script src="../data/products.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+
+<script>
+  NexoraStore.seed();
+
+  function deviceCard(device) {
+    return `
+      <article class="device-card">
+        <span class="badge">${device.status}</span>
+        <h3>${device.model || device.productId}</h3>
+        <p>${device.variant?.ram || ''} ${device.variant?.storage || ''} ${device.variant?.color || ''}</p>
+        <strong>${device.imei}</strong>
+        <small>Sale: ${device.saleId || device.orderId || '—'}</small>
+        <small>Warranty until: ${device.warrantyExpiry ? new Date(device.warrantyExpiry).toLocaleDateString() : '—'}</small>
+      </article>
+    `;
+  }
+
+  function renderDevices() {
+    const devices = NexoraDB.devices();
+
+    document.getElementById('deviceGrid').innerHTML = devices.length
+      ? devices.map(deviceCard).join('')
+      : '<div class="empty-state">No sold phone IMEI has been registered yet.</div>';
+
+    const claims = NexoraDB.claims();
+
+    document.getElementById('claimList').innerHTML = claims.length
+      ? claims.map(claim => `
+          <div class="attention-row">
+            <span>${claim.imei} · ${claim.issue}</span>
+            <span class="badge">${claim.status}</span>
+          </div>
+        `).join('')
+      : '<p class="muted">No warranty claims.</p>';
+  }
+
+  document.getElementById('searchImei').addEventListener('click', () => {
+    const query = document.getElementById('imeiSearch').value.trim();
+    const device = NexoraDB.devices().find(item => item.imei === query);
+
+    document.getElementById('imeiResult').innerHTML = device
+      ? deviceCard(device)
+      : '<div class="empty-state">IMEI not found.</div>';
+  });
+
+  document.getElementById('createClaim').addEventListener('click', () => {
+    const imei = document.getElementById('claimImei').value.trim();
+    const issue = document.getElementById('claimIssue').value.trim();
+
+    if (!imei || !issue) {
+      NexoraUtils.toast('Enter IMEI and issue.');
+      return;
+    }
+
+    const device = NexoraDB.devices().find(item => item.imei === imei);
+
+    if (!device) {
+      NexoraUtils.toast('IMEI is not registered as a sold device.');
+      return;
+    }
+
+    const claims = NexoraDB.claims();
+
+    claims.unshift({
+      id: NexoraUtils.makeId('WC'),
+      imei,
+      issue,
+      status: 'Submitted',
+      createdAt: new Date().toISOString()
+    });
+
+    NexoraDB.saveClaims(claims);
+    renderDevices();
+    NexoraUtils.toast('Warranty claim created.');
+  });
+
+  renderDevices();
+</script>
+</body>
+</html>

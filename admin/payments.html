@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payment Verification — Nexora Admin</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+
+<body>
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <a class="brand" href="dashboard.html">
+      <img src="../assets/logo/nexora-logo.png" alt="Nexora">
+      <span>Nexora</span>
+    </a>
+
+    <nav class="admin-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="pos.html">POS</a>
+      <a href="orders.html">Online Orders</a>
+      <a class="active" href="payments.html">Payment Verification</a>
+      <a href="payment-settings.html">Payment Settings</a><a href="products.html">Products / Promotions</a>
+      <a href="inventory.html">Inventory</a>
+      <a href="delivery.html">Delivery</a>
+      <a href="warranty.html">IMEI / Warranty</a>
+      <a href="returns.html">Returns / Refunds</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="reports.html">Reports</a>
+    </nav>
+
+    <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">
+      View Store ↗
+    </a>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-head">
+      <div>
+        <h1>Payment Verification</h1>
+        <p style="color: var(--muted);">
+          Review KBZPay / WavePay payment proof before confirming an online order.
+        </p>
+      </div>
+
+      <div class="admin-head-actions">
+        <a class="view-store-top" href="../index.html" target="_blank" rel="noopener">
+          View Store ↗
+        </a>
+        <span class="badge">Manager</span>
+      </div>
+    </div>
+
+    <section class="payment-summary-grid" id="paymentSummary"></section>
+    <section id="paymentList"></section>
+  </main>
+</div>
+
+<script src="../data/products.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+
+<script>
+  NexoraStore.seed();
+
+  const paymentList = document.getElementById('paymentList');
+  const paymentSummary = document.getElementById('paymentSummary');
+
+  function paymentBadge(status) {
+    if (status === 'Paid') {
+      return '<span class="badge success">Paid</span>';
+    }
+
+    if (status === 'Rejected') {
+      return '<span class="badge danger">Rejected</span>';
+    }
+
+    return '<span class="badge warn">Pending Verification</span>';
+  }
+
+  function updatePayment(orderId, nextStatus) {
+    const orders = NexoraDB.orders();
+    const order = orders.find(item => item.id === orderId);
+
+    if (!order) {
+      NexoraUtils.toast('Order could not be found.');
+      return;
+    }
+
+    if (nextStatus === 'Rejected') {
+      const confirmed = window.confirm(
+        `Reject payment for ${order.id}? The customer can submit a new payment proof later.`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      order.payment.status = 'Rejected';
+
+      if (order.orderStatus !== 'Delivered') {
+        order.orderStatus = 'Pending';
+      }
+
+      order.payment.reviewedAt = new Date().toISOString();
+      order.payment.reviewNote = 'Payment rejected by manager.';
+    }
+
+    if (nextStatus === 'Paid') {
+      order.payment.status = 'Paid';
+      order.payment.reviewedAt = new Date().toISOString();
+      order.payment.reviewNote = 'Payment verified by manager.';
+    }
+
+    NexoraDB.saveOrders(orders);
+    NexoraUtils.toast(`Payment marked ${nextStatus}.`);
+    renderPayments();
+  }
+
+  function renderSummary(orders) {
+    const pending = orders.filter(order => order.payment.status === 'Pending Verification').length;
+    const paid = orders.filter(order => order.payment.status === 'Paid').length;
+    const rejected = orders.filter(order => order.payment.status === 'Rejected').length;
+
+    paymentSummary.innerHTML = `
+      <article class="payment-summary-card">
+        <span>Pending Review</span>
+        <strong>${pending}</strong>
+      </article>
+
+      <article class="payment-summary-card">
+        <span>Verified Paid</span>
+        <strong>${paid}</strong>
+      </article>
+
+      <article class="payment-summary-card">
+        <span>Rejected</span>
+        <strong>${rejected}</strong>
+      </article>
+    `;
+  }
+
+  function renderPayments() {
+    const orders = NexoraDB.orders();
+
+    renderSummary(orders);
+
+    paymentList.innerHTML = orders.length
+      ? orders.map(order => `
+          <article class="card payment-review-card">
+            <div class="payment-proof-preview">
+              <span>PAYMENT PROOF</span>
+              <strong>${order.payment.method}</strong>
+              <small>${order.payment.proofName || 'No filename'}</small>
+            </div>
+
+            <div class="payment-review-info">
+              <div class="payment-review-title">
+                <div>
+                  <span class="badge">${order.id}</span>
+                  <h3>${order.customer.name}</h3>
+                  <p>${order.customer.phone} · ${order.customer.township}</p>
+                </div>
+
+                ${paymentBadge(order.payment.status)}
+              </div>
+
+              <div class="payment-review-meta">
+                <div>
+                  <span>Amount</span>
+                  <strong>${NexoraUtils.money(order.totals.total)}</strong>
+                </div>
+
+                <div>
+                  <span>Method</span>
+                  <strong>${order.payment.method}</strong>
+                </div>
+
+                <div>
+                  <span>Order Status</span>
+                  <strong>${order.orderStatus}</strong>
+                </div>
+              </div>
+
+              <div class="payment-review-actions">
+                <button
+                  class="btn primary"
+                  type="button"
+                  data-payment-action="Paid"
+                  data-order-id="${order.id}"
+                  ${order.payment.status === 'Paid' ? 'disabled' : ''}
+                >
+                  ✓ Mark Paid
+                </button>
+
+                <button
+                  class="btn payment-reject-btn"
+                  type="button"
+                  data-payment-action="Rejected"
+                  data-order-id="${order.id}"
+                  ${order.payment.status === 'Rejected' ? 'disabled' : ''}
+                >
+                  Reject Payment
+                </button>
+              </div>
+            </div>
+          </article>
+        `).join('')
+      : '<div class="card panel">No payments to review.</div>';
+
+    paymentList.querySelectorAll('[data-payment-action]').forEach(button => {
+      button.addEventListener('click', () => {
+        updatePayment(
+          button.dataset.orderId,
+          button.dataset.paymentAction
+        );
+      });
+    });
+  }
+
+  renderPayments();
+</script>
+</body>
+</html>

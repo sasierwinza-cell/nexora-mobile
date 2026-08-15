@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compare Phones — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/customer.css">
+</head>
+<body>
+<div data-nexora-nav></div>
+<main class="container">
+  <section class="page-head">
+    <div class="breadcrumb"><a href="../index.html">Home</a> / Compare</div>
+    <h1>Compare Phones</h1>
+    <p>Choose up to three phones. The UI highlights the information that matters without becoming a giant spreadsheet.</p>
+  </section>
+
+  <section class="card" style="padding: 18px; margin-bottom: 18px;">
+    <div style="display:grid; grid-template-columns: 1fr auto auto; gap: 10px;">
+      <select id="phonePicker"></select>
+      <button class="btn primary" id="addCompare">Add Phone</button>
+      <button class="btn" id="clearCompare">Clear</button>
+    </div>
+  </section>
+
+  <section id="compareArea"></section>
+</main>
+
+<div data-nexora-footer></div>
+
+<script src="../data/products.js"></script>
+<script src="../data/delivery.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/core/layout.js"></script>
+<script src="../js/customer/shop.js"></script>
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('../');
+</script>
+
+<script>
+  const phones = NexoraDB.products().filter(item => item.category === 'Phones');
+  const phonePicker = document.getElementById('phonePicker');
+  const compareArea = document.getElementById('compareArea');
+
+  phonePicker.innerHTML = phones.map(item => `<option value="${item.id}">${item.brand} — ${item.name}</option>`).join('');
+
+  function renderCompare() {
+    const ids = NexoraStore.get('nx_compare', []);
+    const selected = ids.map(id => phones.find(item => item.id === id)).filter(Boolean);
+
+    if (!selected.length) {
+      compareArea.innerHTML = '<div class="card" style="padding: 30px;">No phones selected yet.</div>';
+      return;
+    }
+
+    compareArea.innerHTML = `
+      <div class="product-grid" style="grid-template-columns: repeat(${selected.length}, 1fr);">
+        ${selected.map(item => `
+          <article class="card" style="padding: 20px;">
+            <div class="product-art"><div class="phone-render"></div></div>
+            <h2>${item.name}</h2>
+            <span class="badge">${item.brand}</span>
+            <div class="spec-grid" style="grid-template-columns: 1fr 1fr;">
+              <div class="spec-tile"><strong>RAM</strong><br>${item.ram.join(', ') || '—'}</div>
+              <div class="spec-tile"><strong>Storage</strong><br>${item.storage.join(', ') || '—'}</div>
+              <div class="spec-tile"><strong>Stock</strong><br>${item.stock}</div>
+              <div class="spec-tile"><strong>Warranty</strong><br>${item.warrantyMonths} mo</div>
+            </div>
+            <p><strong>Colors</strong><br>${item.colors.join(', ')}</p>
+            <div class="detail-price">${NexoraUtils.money(item.price)}</div>
+          </article>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  document.getElementById('addCompare').addEventListener('click', () => {
+    NexoraShop.toggleCompare(phonePicker.value);
+    renderCompare();
+  });
+
+  document.getElementById('clearCompare').addEventListener('click', () => {
+    NexoraStore.set('nx_compare', []);
+    renderCompare();
+  });
+
+  renderCompare();
+</script>
+</body>
+</html>

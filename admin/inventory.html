@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory — Nexora Admin</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <a class="brand" href="dashboard.html">
+      <img src="../assets/logo/nexora-logo.png" alt="Nexora">
+      <span>Nexora</span>
+    </a>
+
+    <nav class="admin-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="pos.html">POS</a>
+      <a href="orders.html">Online Orders</a>
+      <a href="payments.html">Payment Verification</a>
+      <a href="payment-settings.html">Payment Settings</a>
+      <a href="products.html">Products / Promotions</a>
+      <a class="active" href="inventory.html">Inventory</a>
+      <a href="delivery.html">Delivery</a>
+      <a href="warranty.html">IMEI / Warranty</a>
+      <a href="returns.html">Returns / Refunds</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="reports.html">Reports</a>
+    </nav>
+
+    <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">
+      View Store ↗
+    </a>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-head">
+      <div>
+        <span class="admin-eyebrow">VARIANT STOCK</span>
+        <h1>Inventory Management</h1>
+        <p style="color:var(--muted);">
+          Stock is tracked by RAM / Storage / Color. Low-stock alert starts at 5 available units.
+        </p>
+      </div>
+    </div>
+
+    <section class="inventory-command-bar">
+      <div>
+        <span class="admin-eyebrow">STOCK COMMAND</span>
+        <h2>Find a model, then manage only its variants.</h2>
+      </div>
+
+      <div class="inventory-search-box">
+        <span>⌕</span>
+        <input class="field" id="inventorySearch" placeholder="Search model, brand or category">
+      </div>
+    </section>
+
+    <section class="inventory-summary-strip">
+      <div><span>Total units</span><strong id="inventoryTotalUnits">0</strong></div>
+      <div><span>Low variants</span><strong id="inventoryLowCount">0</strong></div>
+      <div><span>Reserved</span><strong id="inventoryReservedCount">0</strong></div>
+      <a href="products.html">Product settings ↗</a>
+    </section>
+
+    <section id="inventoryList"></section>
+  </main>
+</div>
+
+<script src="../data/products.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+
+<script>
+  NexoraStore.seed();
+
+  function reservedVariant(productId, variantId) {
+    return NexoraDB.orders()
+      .filter(order => ['Confirmed', 'Packing', 'Rider Assigned', 'Out for Delivery'].includes(order.orderStatus))
+      .flatMap(order => order.items)
+      .filter(item => item.id === productId && item.variantId === variantId)
+      .reduce((sum, item) => sum + item.qty, 0);
+  }
+
+  function changeVariantStock(productId, variantId, delta) {
+    const products = NexoraDB.products();
+    const product = products.find(item => item.id === productId);
+    const variant = product?.variants?.find(item => item.id === variantId);
+
+    if (!variant) {
+      return;
+    }
+
+    variant.stock = Math.max(0, variant.stock + delta);
+    product.stock = product.variants.reduce((sum, item) => sum + item.stock, 0);
+
+    NexoraDB.saveProducts(products);
+    renderInventory();
+  }
+
+  function renderInventory() {
+    const query = document.getElementById('inventorySearch').value.trim().toLowerCase();
+
+    const allProducts = NexoraDB.products();
+
+    const totalUnits = allProducts.reduce((sum, product) => {
+      return sum + (product.variants || []).reduce((variantSum, variant) => variantSum + Number(variant.stock || 0), 0);
+    }, 0);
+
+    const lowCount = allProducts
+      .flatMap(product => product.variants || [])
+      .filter(variant => Number(variant.stock || 0) <= 5).length;
+
+    const reservedCount = NexoraDB.orders()
+      .filter(order => ['Confirmed', 'Packing', 'Rider Assigned', 'Out for Delivery'].includes(order.orderStatus))
+      .flatMap(order => order.items || [])
+      .reduce((sum, item) => sum + Number(item.qty || 0), 0);
+
+    document.getElementById('inventoryTotalUnits').textContent = totalUnits;
+    document.getElementById('inventoryLowCount').textContent = lowCount;
+    document.getElementById('inventoryReservedCount').textContent = reservedCount;
+
+    const products = allProducts.filter(product => {
+      return (
+        product.name.toLowerCase().includes(query) ||
+        product.brand.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query)
+      );
+    });
+
+    document.getElementById('inventoryList').innerHTML = products.map(product => {
+      const variants = product.variants || [];
+
+      return `
+        <article class="card inventory-product-card">
+          <div class="inventory-product-head">
+            <div>
+              <span class="kicker dark">${product.brand} · ${product.category}</span>
+              <h3>${product.name}</h3>
+            </div>
+
+            <div>
+              <span>Total Stock</span>
+              <strong>${product.stock}</strong>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Variant</th>
+                  <th>Total</th>
+                  <th>Reserved</th>
+                  <th>Available</th>
+                  <th>Status</th>
+                  <th>Adjust</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${variants.map(variant => {
+                  const reserved = reservedVariant(product.id, variant.id);
+                  const available = Math.max(0, variant.stock - reserved);
+
+                  return `
+                    <tr>
+                      <td>
+                        ${variant.ram || ''}
+                        ${variant.storage || ''}
+                        <strong>${variant.color || ''}</strong>
+                      </td>
+                      <td>${variant.stock}</td>
+                      <td>${reserved}</td>
+                      <td>${available}</td>
+                      <td>
+                        <span class="badge ${available <= 5 ? 'danger' : 'success'}">
+                          ${available <= 5 ? 'Low Stock' : 'Healthy'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          class="btn"
+                          type="button"
+                          onclick="changeVariantStock('${product.id}', '${variant.id}', -1)"
+                        >
+                          −
+                        </button>
+
+                        <button
+                          class="btn"
+                          type="button"
+                          onclick="changeVariantStock('${product.id}', '${variant.id}', 1)"
+                        >
+                          +
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('inventorySearch').addEventListener('input', renderInventory);
+
+  renderInventory();
+</script>
+</body>
+</html>

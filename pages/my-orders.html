@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Orders — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/customer.css">
+</head>
+
+<body>
+<div data-nexora-nav></div>
+
+<main class="container">
+  <section class="page-head">
+    <div class="breadcrumb">
+      <a href="../index.html">Home</a> / My Orders
+    </div>
+
+    <h1>Track Your Order</h1>
+
+    <p>
+      Use Order ID + Phone Number, or recover recent orders by phone number
+      on this device.
+    </p>
+  </section>
+
+  <section class="order-lookup-grid">
+    <article class="card lookup-box">
+      <span class="kicker dark">Exact Search</span>
+      <h3>Order ID + Phone</h3>
+
+      <div class="lookup-fields">
+        <input class="field" id="orderId" placeholder="Order ID">
+        <input class="field" id="phoneNumber" placeholder="Phone number">
+      </div>
+
+      <button class="btn primary" id="findOrder" type="button">
+        Find Order
+      </button>
+    </article>
+
+    <article class="card lookup-box lookup-recovery">
+      <span class="kicker dark">Forgot Order ID?</span>
+      <h3>Find recent orders</h3>
+      <p>
+        Enter the same phone number used at checkout.
+      </p>
+
+      <input class="field" id="recoveryPhone" placeholder="Phone number">
+
+      <button class="btn" id="findRecentOrders" type="button">
+        Show Recent Orders
+      </button>
+    </article>
+  </section>
+
+  <section id="recentOrdersResult" class="recent-order-results"></section>
+  <section id="orderResult" style="margin-top:18px;"></section>
+</main>
+
+<div data-nexora-footer></div>
+
+<script src="../data/products.js"></script>
+<script src="../data/delivery.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/core/layout.js"></script>
+<script src="../js/customer/shop.js"></script>
+
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('../');
+
+  const steps = [
+    'Pending',
+    'Confirmed',
+    'Packing',
+    'Rider Assigned',
+    'Out for Delivery',
+    'Delivered'
+  ];
+
+  const orderIdInput = document.getElementById('orderId');
+  const phoneInput = document.getElementById('phoneNumber');
+  const recoveryPhone = document.getElementById('recoveryPhone');
+  const result = document.getElementById('orderResult');
+  const recentResult = document.getElementById('recentOrdersResult');
+
+  orderIdInput.value =
+    NexoraUtils.param('id') ||
+    NexoraStore.get('nx_last_order', '');
+
+  function showOrder(order) {
+    if (!order) {
+      result.innerHTML = `
+        <div class="card order-card">
+          Order not found. Check Order ID and phone number.
+        </div>
+      `;
+      return;
+    }
+
+    const activeIndex = steps.indexOf(order.orderStatus);
+
+    result.innerHTML = `
+      <article class="card order-card">
+        <div class="order-result-top">
+          <div>
+            <span class="badge">${order.id}</span>
+            <h2>${order.orderStatus}</h2>
+            <p>
+              Payment: ${order.payment.status}
+              ·
+              ${order.payment.method}
+            </p>
+          </div>
+
+          <strong>${NexoraUtils.money(order.totals.total)}</strong>
+        </div>
+
+        <div class="timeline">
+          ${steps.map((step, index) => `
+            <div class="timeline-step ${index <= activeIndex ? 'active' : ''}">
+              ${step}
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="spec-grid" style="margin-top:18px;">
+          <div class="spec-tile">
+            <strong>Township</strong><br>
+            ${order.customer.township}
+          </div>
+
+          <div class="spec-tile">
+            <strong>Delivery Fee</strong><br>
+            ${NexoraUtils.money(order.delivery.fee)}
+          </div>
+
+          <div class="spec-tile">
+            <strong>ETA</strong><br>
+            ${order.delivery.eta}
+          </div>
+
+          <div class="spec-tile">
+            <strong>Rider</strong><br>
+            ${order.delivery.rider || 'Not assigned'}
+          </div>
+
+          <div class="spec-tile">
+            <strong>Rider Phone</strong><br>
+            ${order.delivery.riderPhone || '—'}
+          </div>
+
+          <div class="spec-tile">
+            <strong>Notes</strong><br>
+            ${order.delivery.notes || '—'}
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function findRecentByPhone(phone) {
+    const normalizedPhone = phone.trim();
+
+    if (!normalizedPhone) {
+      NexoraUtils.toast('Enter your phone number.');
+      return;
+    }
+
+    const matchingOrders = NexoraDB.orders()
+      .filter(order => order.customer.phone === normalizedPhone)
+      .slice(0, 8);
+
+    if (!matchingOrders.length) {
+      recentResult.innerHTML = `
+        <div class="card recent-order-empty">
+          No recent orders were found on this device.
+        </div>
+      `;
+      return;
+    }
+
+    recentResult.innerHTML = `
+      <div class="recent-orders-head">
+        <div>
+          <span class="kicker dark">Recovered</span>
+          <h3>Recent orders for ${normalizedPhone}</h3>
+        </div>
+      </div>
+
+      <div class="recent-order-grid">
+        ${matchingOrders.map(order => `
+          <button
+            class="recent-order-card"
+            type="button"
+            data-open-order="${order.id}"
+          >
+            <span>${order.id}</span>
+            <strong>${order.orderStatus}</strong>
+            <small>
+              ${NexoraUtils.money(order.totals.total)}
+              ·
+              ${new Date(order.createdAt).toLocaleDateString()}
+            </small>
+          </button>
+        `).join('')}
+      </div>
+    `;
+
+    recentResult.querySelectorAll('[data-open-order]').forEach(button => {
+      button.addEventListener('click', () => {
+        const order = matchingOrders.find(item => {
+          return item.id === button.dataset.openOrder;
+        });
+
+        if (!order) {
+          return;
+        }
+
+        orderIdInput.value = order.id;
+        phoneInput.value = order.customer.phone;
+        showOrder(order);
+
+        result.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      });
+    });
+  }
+
+  document.getElementById('findOrder').addEventListener('click', () => {
+    const order = NexoraDB.orders().find(item => {
+      return (
+        item.id === orderIdInput.value.trim() &&
+        item.customer.phone === phoneInput.value.trim()
+      );
+    });
+
+    showOrder(order);
+  });
+
+  document.getElementById('findRecentOrders').addEventListener('click', () => {
+    findRecentByPhone(recoveryPhone.value);
+  });
+
+  if (orderIdInput.value) {
+    const order = NexoraDB.orders().find(item => {
+      return item.id === orderIdInput.value;
+    });
+
+    if (order) {
+      phoneInput.value = order.customer.phone;
+      recoveryPhone.value = order.customer.phone;
+      showOrder(order);
+    }
+  }
+</script>
+</body>
+</html>

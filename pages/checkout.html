@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checkout — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/customer.css">
+</head>
+<body>
+<div data-nexora-nav></div>
+
+<main class="container">
+  <section class="page-head">
+    <div class="breadcrumb"><a href="../index.html">Home</a> / Checkout</div>
+    <h1>Checkout</h1>
+    <p>Delivery details and payment are separated so the process stays clear.</p>
+  </section>
+
+  <form id="checkoutForm" class="checkout-layout">
+    <div class="checkout-main">
+      <section class="card checkout-section">
+        <span class="checkout-step">01</span>
+        <span class="kicker dark">DELIVERY DETAILS</span>
+        <h2>Where should we deliver?</h2>
+
+        <div class="form-grid two">
+          <label>
+            Full Name
+            <input class="field" id="customerName" required placeholder="Your name">
+          </label>
+
+          <label>
+            Phone Number
+            <input class="field" id="customerPhone" required placeholder="09xxxxxxxxx">
+          </label>
+        </div>
+
+        <label>
+          Delivery Address
+          <textarea class="field" id="customerAddress" required placeholder="House / street / landmark"></textarea>
+        </label>
+
+        <label>
+          Township
+          <select id="townshipSelect"></select>
+        </label>
+      </section>
+
+      <section class="card checkout-section payment-section">
+        <span class="checkout-step">02</span>
+        <span class="kicker dark">PAYMENT</span>
+        <h2>Transfer to Nexora Mobile</h2>
+
+        <p class="muted">
+          Choose KBZPay or WavePay, transfer the full total to the shop account,
+          then upload the transfer screenshot as Payment Proof.
+        </p>
+
+        <div class="payment-method-grid" id="paymentMethods"></div>
+
+        <div class="payment-account-card" id="paymentAccount"></div>
+
+        <label class="proof-upload">
+          <span>Payment Proof</span>
+          <small>Upload your KBZPay/WavePay transfer screenshot or receipt image.</small>
+          <input class="field" id="paymentProof" type="file" accept="image/*" required>
+        </label>
+      </section>
+
+      <button class="btn primary place-order-btn" type="submit">
+        Place Order
+      </button>
+    </div>
+
+    <aside class="card checkout-summary">
+      <span class="kicker dark">ORDER SUMMARY</span>
+      <div id="checkoutItems"></div>
+
+      <div class="summary-row">
+        <span>Products</span>
+        <strong id="productTotal">0 MMK</strong>
+      </div>
+
+      <div class="summary-row">
+        <span>Delivery</span>
+        <strong id="deliveryFee">0 MMK</strong>
+      </div>
+
+      <div class="summary-row total-row">
+        <span>Grand Total</span>
+        <strong id="grandTotal">0 MMK</strong>
+      </div>
+    </aside>
+  </form>
+</main>
+
+<div data-nexora-footer></div>
+
+<script src="../data/products.js"></script>
+<script src="../data/delivery.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/core/layout.js"></script>
+<script src="../js/customer/shop.js"></script>
+
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('../');
+
+  const cart = NexoraStore.get('nx_cart', []);
+  const paymentSettings = NexoraDB.paymentSettings();
+  const townshipSelect = document.getElementById('townshipSelect');
+
+  const deliveryZones = window.NEXORA_DELIVERY_ZONES || {};
+
+  townshipSelect.innerHTML = Object.entries(deliveryZones).map(([township, details]) => {
+    const fee = typeof details === 'number' ? details : details.fee;
+    return `<option value="${township}" data-fee="${fee}">${township}</option>`;
+  }).join('');
+
+  const methods = [];
+
+  if (paymentSettings.kbzpay?.active) {
+    methods.push('KBZPay');
+  }
+
+  if (paymentSettings.wavepay?.active) {
+    methods.push('WavePay');
+  }
+
+  document.getElementById('paymentMethods').innerHTML = methods.map((method, index) => `
+    <label class="payment-method-option">
+      <input
+        type="radio"
+        name="paymentMethod"
+        value="${method}"
+        ${index === 0 ? 'checked' : ''}
+      >
+      <span>
+        <strong>${method}</strong>
+        <small>Prepaid transfer</small>
+      </span>
+    </label>
+  `).join('');
+
+  function selectedPaymentMethod() {
+    return document.querySelector('input[name="paymentMethod"]:checked')?.value || methods[0];
+  }
+
+  function renderPaymentAccount() {
+    const method = selectedPaymentMethod();
+    const key = method === 'KBZPay' ? 'kbzpay' : 'wavepay';
+    const account = paymentSettings[key] || {};
+
+    document.getElementById('paymentAccount').innerHTML = `
+      <div>
+        <span>${method} Account</span>
+        <strong>${account.phone || '09-xxxxxxxxx'}</strong>
+        <small>${account.accountName || paymentSettings.shopName || 'Nexora Mobile'}</small>
+      </div>
+
+      <button
+        type="button"
+        class="btn"
+        id="copyPaymentNumber"
+        data-number="${account.phone || ''}"
+      >
+        Copy Number
+      </button>
+    `;
+
+    document.getElementById('copyPaymentNumber').addEventListener('click', async () => {
+      const number = document.getElementById('copyPaymentNumber').dataset.number;
+
+      try {
+        await navigator.clipboard.writeText(number);
+        NexoraUtils.toast('Payment number copied.');
+      } catch (error) {
+        window.prompt('Copy payment number:', number);
+      }
+    });
+  }
+
+  document.querySelectorAll('input[name="paymentMethod"]').forEach(input => {
+    input.addEventListener('change', renderPaymentAccount);
+  });
+
+  function currentTotals() {
+    const productTotal = cart.reduce((sum, item) => {
+      return sum + (Number(item.price) * item.qty);
+    }, 0);
+
+    const selectedOption = townshipSelect.options[townshipSelect.selectedIndex];
+    const deliveryFee = Number(selectedOption?.dataset.fee || 0);
+
+    return {
+      productTotal,
+      deliveryFee,
+      total: productTotal + deliveryFee
+    };
+  }
+
+  function renderSummary() {
+    const totals = currentTotals();
+
+    document.getElementById('checkoutItems').innerHTML = cart.map(item => `
+      <div class="checkout-line">
+        <div>
+          <strong>${item.name}</strong>
+          <small>
+            ${item.variant?.ram || ''}
+            ${item.variant?.storage || ''}
+            ${item.variant?.color || ''}
+            × ${item.qty}
+          </small>
+
+          ${item.gift?.active && item.gift?.name ? `
+            <small class="gift-line">🎁 ${item.gift.name} × ${item.gift.qty || 1} — FREE</small>
+          ` : ''}
+        </div>
+
+        <strong>${NexoraUtils.money(item.price * item.qty)}</strong>
+      </div>
+    `).join('');
+
+    document.getElementById('productTotal').textContent = NexoraUtils.money(totals.productTotal);
+    document.getElementById('deliveryFee').textContent = NexoraUtils.money(totals.deliveryFee);
+    document.getElementById('grandTotal').textContent = NexoraUtils.money(totals.total);
+  }
+
+  townshipSelect.addEventListener('change', renderSummary);
+
+  document.getElementById('checkoutForm').addEventListener('submit', event => {
+    event.preventDefault();
+
+    if (!cart.length) {
+      NexoraUtils.toast('Your cart is empty.');
+      return;
+    }
+
+    const totals = currentTotals();
+    const proof = document.getElementById('paymentProof').files[0];
+    const method = selectedPaymentMethod();
+
+    const order = {
+      id: NexoraUtils.makeId('NX'),
+      createdAt: new Date().toISOString(),
+      customer: {
+        name: document.getElementById('customerName').value.trim(),
+        phone: document.getElementById('customerPhone').value.trim(),
+        address: document.getElementById('customerAddress').value.trim(),
+        township: townshipSelect.value
+      },
+      items: cart,
+      payment: {
+        method,
+        status: 'Pending Verification',
+        proofName: proof?.name || 'payment-proof',
+        accountPhone: method === 'KBZPay'
+          ? paymentSettings.kbzpay?.phone
+          : paymentSettings.wavepay?.phone
+      },
+      orderStatus: 'Pending',
+      delivery: {
+        fee: totals.deliveryFee,
+        rider: '',
+        riderPhone: '',
+        eta: '1–3 days',
+        notes: ''
+      },
+      totals: {
+        subtotal: totals.productTotal,
+        delivery: totals.deliveryFee,
+        total: totals.total
+      }
+    };
+
+    const orders = NexoraDB.orders();
+    orders.unshift(order);
+    NexoraDB.saveOrders(orders);
+
+    NexoraStore.set('nx_cart', []);
+    NexoraStore.set('nx_last_order', order.id);
+
+    const recent = NexoraStore.get('nx_recent_orders', []);
+    NexoraStore.set('nx_recent_orders', [
+      {
+        id: order.id,
+        phone: order.customer.phone,
+        createdAt: order.createdAt
+      },
+      ...recent.filter(item => item.id !== order.id)
+    ].slice(0, 12));
+
+    window.location.href = `order-success.html?id=${encodeURIComponent(order.id)}`;
+  });
+
+  renderPaymentAccount();
+  renderSummary();
+</script>
+</body>
+</html>

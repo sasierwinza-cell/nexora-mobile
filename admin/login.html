@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manager Login — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body class="login-page">
+  <form class="login-card" id="loginForm">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo/nexora-logo.png" alt="Nexora Mobile logo">
+      <span>Nexora Mobile</span>
+    </a>
+    <h2>Manager Login</h2>
+    <p style="color:var(--muted);">One Manager/Admin role for the current project.</p>
+    <input class="field" id="email" value="admin@nexora.local" style="margin-top:12px;">
+    <input class="field" id="password" type="password" value="123456" style="margin-top:10px;">
+    <button class="btn primary" style="width:100%; margin-top:12px;">Sign In</button>
+  </form>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      if (email === 'admin@nexora.local' && password === '123456') {
+        sessionStorage.setItem('nx_admin', '1');
+        window.location.href = 'dashboard.html';
+      } else {
+        alert('Invalid demo login');
+      }
+    });
+  </script>
+</body>
+</html>

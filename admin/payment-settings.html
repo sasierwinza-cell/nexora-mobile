@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payment Settings — Nexora Admin</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <a class="brand" href="dashboard.html">
+      <img src="../assets/logo/nexora-logo.png" alt="Nexora">
+      <span>Nexora</span>
+    </a>
+
+    <nav class="admin-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="pos.html">POS</a>
+      <a href="orders.html">Online Orders</a>
+      <a href="payments.html">Payment Verification</a>
+      <a class="active" href="payment-settings.html">Payment Settings</a>
+      <a href="products.html">Products / Promotions</a>
+      <a href="inventory.html">Inventory</a>
+      <a href="delivery.html">Delivery</a>
+      <a href="warranty.html">IMEI / Warranty</a>
+      <a href="returns.html">Returns / Refunds</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="reports.html">Reports</a>
+    </nav>
+
+    <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">
+      View Store ↗
+    </a>
+  </aside>
+
+  <main class="admin-main premium-admin-page">
+    <div class="admin-head premium-admin-head">
+      <div>
+        <span class="admin-eyebrow">MONEY IN</span>
+        <h1>Payment accounts</h1>
+        <p>What customers see at checkout. Keep only active accounts visible.</p>
+      </div>
+
+      <div class="admin-head-actions">
+        <span class="save-state" id="saveState">All changes saved</span>
+        <a class="view-store-top" href="../pages/checkout.html" target="_blank">Preview checkout ↗</a>
+      </div>
+    </div>
+
+    <section class="payment-settings-hero">
+      <div>
+        <span class="payment-settings-index">PAYMENT / 01</span>
+        <h2>Receive money without making checkout confusing.</h2>
+        <p>
+          Customers choose one active wallet, copy the shop number,
+          transfer the amount, then upload proof.
+        </p>
+      </div>
+
+      <div class="payment-flow-mini">
+        <span>Choose wallet</span>
+        <i>→</i>
+        <span>Transfer</span>
+        <i>→</i>
+        <span>Upload proof</span>
+      </div>
+    </section>
+
+    <section class="wallet-grid" id="walletGrid"></section>
+
+    <section class="payment-safety-strip">
+      <div>
+        <strong>Checkout visibility</strong>
+        <span>Inactive wallets disappear automatically.</span>
+      </div>
+      <div>
+        <strong>Payment proof</strong>
+        <span>Still requires admin verification before Paid.</span>
+      </div>
+      <div>
+        <strong>Account control</strong>
+        <span>Edit here — no source-code changes needed.</span>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="wallet-edit-modal" id="walletModal" hidden>
+  <div class="wallet-modal-backdrop" data-wallet-close></div>
+
+  <form class="wallet-edit-sheet" id="walletForm">
+    <div class="wallet-edit-top">
+      <div>
+        <span class="admin-eyebrow">EDIT WALLET</span>
+        <h2 id="walletEditTitle">KBZPay</h2>
+      </div>
+      <button type="button" class="icon-close" data-wallet-close>×</button>
+    </div>
+
+    <label>
+      Shop / Owner Phone Number
+      <input class="field" id="walletPhone" required placeholder="09xxxxxxxxx">
+    </label>
+
+    <label>
+      Account Name
+      <input class="field" id="walletName" required placeholder="Nexora Mobile">
+    </label>
+
+    <label class="qr-upload-zone">
+      <span>QR image</span>
+      <small>Optional for now — preview area is ready.</small>
+      <input type="file" id="walletQr" accept="image/*">
+    </label>
+
+    <div class="wallet-edit-actions">
+      <button class="btn" type="button" data-wallet-close>Cancel</button>
+      <button class="btn primary" type="submit">Save account</button>
+    </div>
+  </form>
+</div>
+
+<script src="../data/products.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+
+<script>
+  NexoraStore.seed();
+
+  let settings = NexoraDB.paymentSettings();
+  let editingKey = null;
+
+  const walletMeta = {
+    kbzpay: {
+      label: 'KBZPay',
+      short: 'KBZ',
+      hint: 'Primary mobile wallet',
+      className: 'wallet-kbz'
+    },
+    wavepay: {
+      label: 'WavePay',
+      short: 'W',
+      hint: 'Alternative mobile wallet',
+      className: 'wallet-wave'
+    }
+  };
+
+  function maskNumber(number) {
+    if (!number) return 'Not configured';
+    return number;
+  }
+
+  function renderWallets() {
+    document.getElementById('walletGrid').innerHTML = Object.entries(walletMeta)
+      .map(([key, meta]) => {
+        const wallet = settings[key] || {};
+
+        return `
+          <article class="wallet-card ${meta.className} ${wallet.active ? 'active' : 'inactive'}">
+            <div class="wallet-card-top">
+              <div class="wallet-mark">${meta.short}</div>
+
+              <label class="premium-switch">
+                <input
+                  type="checkbox"
+                  data-wallet-active="${key}"
+                  ${wallet.active ? 'checked' : ''}
+                >
+                <span></span>
+              </label>
+            </div>
+
+            <div class="wallet-card-copy">
+              <small>${meta.hint}</small>
+              <h3>${meta.label}</h3>
+              <strong>${maskNumber(wallet.phone)}</strong>
+              <span>${wallet.accountName || 'Nexora Mobile'}</span>
+            </div>
+
+            <div class="wallet-card-status">
+              <span class="wallet-dot"></span>
+              ${wallet.active ? 'Visible at checkout' : 'Hidden from checkout'}
+            </div>
+
+            <div class="wallet-card-actions">
+              <button class="wallet-action" type="button" data-copy-wallet="${key}">
+                Copy number
+              </button>
+              <button class="wallet-action primary-action" type="button" data-edit-wallet="${key}">
+                Edit account ↗
+              </button>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+    document.querySelectorAll('[data-wallet-active]').forEach(input => {
+      input.addEventListener('change', () => {
+        const key = input.dataset.walletActive;
+        settings[key].active = input.checked;
+        saveSettings('Wallet visibility updated');
+      });
+    });
+
+    document.querySelectorAll('[data-copy-wallet]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const number = settings[button.dataset.copyWallet]?.phone || '';
+
+        try {
+          await navigator.clipboard.writeText(number);
+          setSaveState('Number copied');
+        } catch (error) {
+          window.prompt('Copy number:', number);
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-edit-wallet]').forEach(button => {
+      button.addEventListener('click', () => openEditor(button.dataset.editWallet));
+    });
+  }
+
+  function setSaveState(text) {
+    const state = document.getElementById('saveState');
+    state.textContent = text;
+    state.classList.add('flash');
+
+    setTimeout(() => {
+      state.textContent = 'All changes saved';
+      state.classList.remove('flash');
+    }, 1800);
+  }
+
+  function saveSettings(message = 'Saved') {
+    NexoraDB.savePaymentSettings(settings);
+    renderWallets();
+    setSaveState(message);
+  }
+
+  function openEditor(key) {
+    editingKey = key;
+    const meta = walletMeta[key];
+    const wallet = settings[key];
+
+    document.getElementById('walletEditTitle').textContent = meta.label;
+    document.getElementById('walletPhone').value = wallet.phone || '';
+    document.getElementById('walletName').value = wallet.accountName || '';
+    document.getElementById('walletModal').hidden = false;
+  }
+
+  function closeEditor() {
+    document.getElementById('walletModal').hidden = true;
+    editingKey = null;
+  }
+
+  document.querySelectorAll('[data-wallet-close]').forEach(element => {
+    element.addEventListener('click', closeEditor);
+  });
+
+  document.getElementById('walletForm').addEventListener('submit', event => {
+    event.preventDefault();
+
+    if (!editingKey) return;
+
+    settings[editingKey].phone = document.getElementById('walletPhone').value.trim();
+    settings[editingKey].accountName = document.getElementById('walletName').value.trim();
+
+    saveSettings('Payment account saved');
+    closeEditor();
+  });
+
+  renderWallets();
+</script>
+</body>
+</html>

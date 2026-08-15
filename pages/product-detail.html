@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/customer.css">
+</head>
+<body>
+<div data-nexora-nav></div>
+
+<main class="container">
+  <section class="page-head">
+    <div class="breadcrumb">
+      <a href="../index.html">Home</a> /
+      <a href="phones.html">Shop</a> /
+      Product
+    </div>
+  </section>
+
+  <section class="detail-layout" id="productDetail"></section>
+</main>
+
+<div data-nexora-footer></div>
+
+<script src="../data/products.js"></script>
+<script src="../data/delivery.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/core/layout.js"></script>
+<script src="../js/customer/shop.js"></script>
+
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('../');
+
+  const productId = NexoraUtils.param('id');
+  const product = NexoraDB.products().find(item => item.id === productId) || NexoraDB.products()[0];
+  const variants = product.variants || [];
+
+  const selection = {
+    ram: product.ram?.[0] || variants[0]?.ram || '',
+    storage: product.storage?.[0] || variants[0]?.storage || '',
+    color: product.colors?.[0] || variants[0]?.color || ''
+  };
+
+  function matchingVariant() {
+    return NexoraShop.variantFor(product, selection);
+  }
+
+  function optionButton(type, value, active) {
+    const related = variants.filter(variant => {
+      if (type !== 'ram' && selection.ram && variant.ram !== selection.ram) {
+        return false;
+      }
+
+      if (type !== 'storage' && selection.storage && variant.storage !== selection.storage) {
+        return false;
+      }
+
+      if (type !== 'color' && selection.color && variant.color !== selection.color) {
+        return false;
+      }
+
+      return variant[type] === value;
+    });
+
+    const inStock = related.some(variant => variant.stock > 0);
+
+    return `
+      <button
+        type="button"
+        class="variant-option ${active ? 'active' : ''} ${!inStock ? 'disabled' : ''}"
+        data-option-type="${type}"
+        data-option-value="${value}"
+        ${!inStock ? 'disabled' : ''}
+      >
+        ${type === 'color' ? `<i class="color-chip" data-color-name="${value}"></i>` : ''}
+        <span>${value}</span>
+        ${!inStock ? '<small>Out</small>' : ''}
+      </button>
+    `;
+  }
+
+  function render() {
+    const variant = matchingVariant();
+    const rawPrice = variant?.price ?? product.price;
+    const finalPrice = NexoraShop.finalPrice(product, rawPrice);
+    const hasDiscount = finalPrice < rawPrice;
+    const gift = NexoraShop.giftLabel(product);
+
+    document.getElementById('productDetail').innerHTML = `
+      <section class="detail-gallery card">
+        <div class="detail-art">
+          <div class="phone-visual large"></div>
+          <span class="detail-color-caption">${selection.color || 'Default'}</span>
+        </div>
+
+        <div class="detail-mini-specs">
+          <span>${product.brand}</span>
+          <span>${product.series || product.category}</span>
+          <span>${product.warrantyMonths} mo warranty</span>
+        </div>
+      </section>
+
+      <section class="detail-info card">
+        <div>
+          <span class="kicker dark">${product.brand} · ${product.category}</span>
+          <h1>${product.name}</h1>
+          <p class="muted">
+            Select the exact variant you want. Price and stock change automatically.
+          </p>
+        </div>
+
+        ${product.ram?.length ? `
+          <div class="variant-group">
+            <div class="variant-heading">
+              <strong>RAM</strong>
+              <span>${selection.ram}</span>
+            </div>
+            <div class="variant-options">
+              ${product.ram.map(value => optionButton('ram', value, selection.ram === value)).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${product.storage?.length ? `
+          <div class="variant-group">
+            <div class="variant-heading">
+              <strong>Storage</strong>
+              <span>${selection.storage}</span>
+            </div>
+            <div class="variant-options">
+              ${product.storage.map(value => optionButton('storage', value, selection.storage === value)).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${product.colors?.length ? `
+          <div class="variant-group">
+            <div class="variant-heading">
+              <strong>Color</strong>
+              <span>${selection.color}</span>
+            </div>
+            <div class="variant-options">
+              ${product.colors.map(value => optionButton('color', value, selection.color === value)).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="variant-live-card">
+          <div>
+            <span>Selected Variant</span>
+            <strong>
+              ${selection.ram || ''}
+              ${selection.storage || ''}
+              ${selection.color || ''}
+            </strong>
+          </div>
+
+          <div>
+            <span>Stock</span>
+            <strong class="${(variant?.stock || 0) <= 5 ? 'stock-low' : 'stock-good'}">
+              ${(variant?.stock || 0) > 0 ? `${variant.stock} available` : 'Out of stock'}
+            </strong>
+          </div>
+        </div>
+
+        <div class="detail-price-block">
+          ${hasDiscount ? `
+            <span class="old-price">${NexoraUtils.money(rawPrice)}</span>
+            <span class="save-label">
+              ${product.discountType === 'percent'
+                ? `${product.discountValue}% OFF`
+                : `${NexoraUtils.money(product.discountValue)} OFF`
+              }
+            </span>
+          ` : ''}
+          <strong>${NexoraUtils.money(finalPrice)}</strong>
+        </div>
+
+        ${gift ? `
+          <div class="free-gift-card">
+            <span>🎁 FREE GIFT</span>
+            <strong>${gift}</strong>
+            <small>Automatically added to your cart at 0 MMK.</small>
+          </div>
+        ` : ''}
+
+        <div class="detail-actions">
+          <button
+            class="btn primary"
+            id="addVariantToCart"
+            type="button"
+            ${(variant?.stock || 0) <= 0 ? 'disabled' : ''}
+          >
+            Add to Cart
+          </button>
+
+          <button
+            class="btn"
+            id="compareProduct"
+            type="button"
+          >
+            Compare
+          </button>
+        </div>
+
+        <div class="detail-trust">
+          <span>✓ Variant stock checked</span>
+          <span>✓ Warranty included</span>
+          <span>✓ IMEI assigned at sale/packing</span>
+        </div>
+      </section>
+    `;
+
+    document.querySelectorAll('[data-option-type]').forEach(button => {
+      button.addEventListener('click', () => {
+        selection[button.dataset.optionType] = button.dataset.optionValue;
+        render();
+      });
+    });
+
+    document.getElementById('addVariantToCart')?.addEventListener('click', () => {
+      const current = matchingVariant();
+
+      if (!current || current.stock <= 0) {
+        NexoraUtils.toast('This variant is out of stock.');
+        return;
+      }
+
+      const cart = NexoraStore.get('nx_cart', []);
+      const unitPrice = NexoraShop.finalPrice(product, current.price);
+
+      const same = cart.find(item => {
+        return (
+          item.id === product.id &&
+          item.variantId === current.id
+        );
+      });
+
+      if (same) {
+        if (same.qty + 1 > current.stock) {
+          NexoraUtils.toast('Not enough stock for this variant.');
+          return;
+        }
+
+        same.qty += 1;
+      } else {
+        cart.push({
+          id: product.id,
+          variantId: current.id,
+          name: product.name,
+          brand: product.brand,
+          price: unitPrice,
+          originalPrice: current.price,
+          qty: 1,
+          variant: {
+            ram: current.ram,
+            storage: current.storage,
+            color: current.color
+          },
+          gift: product.gift?.active ? product.gift : null
+        });
+      }
+
+      NexoraStore.set('nx_cart', cart);
+      NexoraLayout.updateCartCount();
+      NexoraUtils.toast('Added selected variant to cart.');
+    });
+
+    document.getElementById('compareProduct')?.addEventListener('click', () => {
+      NexoraShop.toggleCompare(product.id);
+    });
+  }
+
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reports — Nexora Admin</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <a class="brand" href="dashboard.html">
+      <img src="../assets/logo/nexora-logo.png" alt="Nexora">
+      <span>Nexora</span>
+    </a>
+
+    <nav class="admin-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="pos.html">POS</a>
+      <a href="orders.html">Online Orders</a>
+      <a href="payments.html">Payment Verification</a>
+      <a href="payment-settings.html">Payment Settings</a>
+      <a href="products.html">Products / Promotions</a>
+      <a href="inventory.html">Inventory</a>
+      <a href="delivery.html">Delivery</a>
+      <a href="warranty.html">IMEI / Warranty</a>
+      <a href="returns.html">Returns / Refunds</a>
+      <a href="expenses.html">Expenses</a>
+      <a class="active" href="reports.html">Reports</a>
+    </nav>
+
+    <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">View Store ↗</a>
+  </aside>
+
+  <main class="admin-main premium-admin-page">
+    <div class="admin-head premium-admin-head">
+      <div>
+        <span class="admin-eyebrow">SALES INTELLIGENCE</span>
+        <h1>Performance, not spreadsheets.</h1>
+        <p>Revenue, expenses, profit, channels and best sellers in one compact view.</p>
+      </div>
+
+      <div class="report-periods" id="periodButtons">
+        <button data-days="0">Today</button>
+        <button data-days="7" class="active">7 days</button>
+        <button data-days="30">30 days</button>
+        <button data-days="99999">All</button>
+      </div>
+    </div>
+
+    <section class="report-hero-grid">
+      <article class="report-primary-metric">
+        <span>NET PROFIT</span>
+        <strong id="netProfit">0 MMK</strong>
+        <small>Revenue − expenses</small>
+      </article>
+
+      <article class="report-mini-metric">
+        <span>Revenue</span>
+        <strong id="reportRevenue">0 MMK</strong>
+      </article>
+
+      <article class="report-mini-metric expense">
+        <span>Expenses</span>
+        <strong id="reportExpenses">0 MMK</strong>
+      </article>
+
+      <article class="report-mini-metric">
+        <span>Transactions</span>
+        <strong id="reportTransactions">0</strong>
+      </article>
+    </section>
+
+    <section class="report-insight-grid">
+      <article class="card report-panel sales-trend-panel">
+        <div class="report-panel-head">
+          <div>
+            <span class="admin-eyebrow">TREND</span>
+            <h2>Sales movement</h2>
+          </div>
+          <span class="report-hint">Recent 7 buckets</span>
+        </div>
+
+        <div class="premium-bar-chart" id="salesTrend"></div>
+      </article>
+
+      <article class="card report-panel">
+        <div class="report-panel-head">
+          <div>
+            <span class="admin-eyebrow">CHANNEL</span>
+            <h2>Online vs POS</h2>
+          </div>
+        </div>
+
+        <div class="channel-donut-wrap">
+          <div class="channel-donut" id="channelDonut"></div>
+          <div class="channel-legend">
+            <div><i class="online-dot"></i><span>Online</span><strong id="onlineRevenue">0 MMK</strong></div>
+            <div><i class="pos-dot"></i><span>POS</span><strong id="posRevenue">0 MMK</strong></div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="report-bottom-grid">
+      <article class="card report-panel">
+        <div class="report-panel-head">
+          <div>
+            <span class="admin-eyebrow">WINNERS</span>
+            <h2>Best-selling models</h2>
+          </div>
+        </div>
+        <div id="bestSellerList"></div>
+      </article>
+
+      <article class="card report-panel">
+        <div class="report-panel-head">
+          <div>
+            <span class="admin-eyebrow">ATTENTION</span>
+            <h2>Low stock</h2>
+          </div>
+          <a href="inventory.html">Inventory ↗</a>
+        </div>
+        <div id="reportLowStock"></div>
+      </article>
+    </section>
+  </main>
+</div>
+
+<script src="../data/products.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+
+<script>
+  NexoraStore.seed();
+
+  let periodDays = 7;
+
+  function withinPeriod(dateValue) {
+    if (!dateValue) return false;
+    if (periodDays >= 99999) return true;
+
+    const date = new Date(dateValue);
+    const now = new Date();
+
+    if (periodDays === 0) {
+      return date.toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
+    }
+
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() - periodDays);
+    return date >= cutoff;
+  }
+
+  function calculate() {
+    const sales = NexoraDB.sales().filter(sale => withinPeriod(sale.createdAt));
+
+    const orders = NexoraDB.orders().filter(order => {
+      return withinPeriod(order.createdAt) && order.payment?.status === 'Paid';
+    });
+
+    const expenses = NexoraDB.expenses().filter(expense => {
+      return withinPeriod(expense.createdAt || expense.date);
+    });
+
+    const posRevenue = sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+    const onlineRevenue = orders.reduce((sum, order) => sum + Number(order.totals?.total || 0), 0);
+    const revenue = posRevenue + onlineRevenue;
+    const expenseTotal = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    const net = revenue - expenseTotal;
+
+    document.getElementById('reportRevenue').textContent = NexoraUtils.money(revenue);
+    document.getElementById('reportExpenses').textContent = NexoraUtils.money(expenseTotal);
+    document.getElementById('netProfit').textContent = NexoraUtils.money(net);
+    document.getElementById('reportTransactions').textContent = sales.length + orders.length;
+    document.getElementById('onlineRevenue').textContent = NexoraUtils.money(onlineRevenue);
+    document.getElementById('posRevenue').textContent = NexoraUtils.money(posRevenue);
+
+    const onlinePercent = revenue ? Math.round((onlineRevenue / revenue) * 100) : 50;
+    document.getElementById('channelDonut').style.setProperty('--online-percent', `${onlinePercent}%`);
+
+    renderTrend(sales, orders);
+    renderBestSellers(sales, orders);
+    renderLowStock();
+  }
+
+  function renderTrend(sales, orders) {
+    const buckets = [];
+
+    for (let offset = 6; offset >= 0; offset--) {
+      const date = new Date();
+      date.setDate(date.getDate() - offset);
+      const key = date.toISOString().slice(0, 10);
+
+      const value =
+        sales
+          .filter(sale => sale.createdAt?.slice(0, 10) === key)
+          .reduce((sum, sale) => sum + Number(sale.total || 0), 0) +
+        orders
+          .filter(order => order.createdAt?.slice(0, 10) === key)
+          .reduce((sum, order) => sum + Number(order.totals?.total || 0), 0);
+
+      buckets.push({
+        label: date.toLocaleDateString(undefined, { weekday: 'short' }),
+        value
+      });
+    }
+
+    const max = Math.max(...buckets.map(item => item.value), 1);
+
+    document.getElementById('salesTrend').innerHTML = buckets.map(item => `
+      <div class="premium-bar-column">
+        <div class="premium-bar-value">${item.value ? NexoraUtils.money(item.value) : ''}</div>
+        <div class="premium-bar-track">
+          <i style="height:${Math.max(5, item.value / max * 100)}%"></i>
+        </div>
+        <span>${item.label}</span>
+      </div>
+    `).join('');
+  }
+
+  function renderBestSellers(sales, orders) {
+    const counts = {};
+
+    const lines = [
+      ...sales.flatMap(sale => sale.items || []),
+      ...orders.flatMap(order => order.items || [])
+    ];
+
+    lines.forEach(item => {
+      const key = item.name || item.id;
+      counts[key] = (counts[key] || 0) + Number(item.qty || 1);
+    });
+
+    const ranked = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    document.getElementById('bestSellerList').innerHTML = ranked.length
+      ? ranked.map(([name, qty], index) => `
+          <div class="ranking-row">
+            <span>${String(index + 1).padStart(2, '0')}</span>
+            <strong>${name}</strong>
+            <b>${qty} sold</b>
+          </div>
+        `).join('')
+      : '<div class="empty-state">No sales in this period.</div>';
+  }
+
+  function renderLowStock() {
+    const items = NexoraDB.products()
+      .flatMap(product => (product.variants || []).map(variant => ({
+        name: product.name,
+        variant,
+        stock: Number(variant.stock || 0)
+      })))
+      .filter(item => item.stock <= 5)
+      .sort((a, b) => a.stock - b.stock)
+      .slice(0, 5);
+
+    document.getElementById('reportLowStock').innerHTML = items.length
+      ? items.map(item => `
+          <div class="ranking-row low-stock-ranking">
+            <span>${item.stock}</span>
+            <strong>${item.name}</strong>
+            <b>${item.variant.color || ''}</b>
+          </div>
+        `).join('')
+      : '<div class="empty-state">Stock is healthy.</div>';
+  }
+
+  document.querySelectorAll('[data-days]').forEach(button => {
+    button.addEventListener('click', () => {
+      periodDays = Number(button.dataset.days);
+
+      document.querySelectorAll('[data-days]').forEach(item => {
+        item.classList.toggle('active', item === button);
+      });
+
+      calculate();
+    });
+  });
+
+  calculate();
+</script>
+</body>
+</html>

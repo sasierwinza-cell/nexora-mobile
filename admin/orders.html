@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Online Orders — Nexora Admin</title><link rel="stylesheet" href="../css/base.css"><link rel="stylesheet" href="../css/admin.css"></head><body><div class="admin-shell"><aside class="admin-sidebar">
+      <a class="brand" href="dashboard.html"><img src="../assets/logo/nexora-logo.png" alt="Nexora"><span>Nexora</span></a>
+      <nav class="admin-nav"><a class="" href="dashboard.html">Dashboard</a><a class="" href="pos.html">POS</a><a class="active" href="orders.html">Online Orders</a><a class="" href="payments.html">Payment Verification</a><a class="" href="payment-settings.html">Payment Settings</a><a class="" href="products.html">Products / Promotions</a><a class="" href="inventory.html">Inventory</a><a class="" href="delivery.html">Delivery</a><a class="" href="warranty.html">IMEI / Warranty</a><a class="" href="returns.html">Returns / Refunds</a><a class="" href="reports.html">Reports</a></nav>
+      <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">View Store ↗</a>
+    </aside>
+<main class="admin-main">
+  <div class="admin-head"><div><h1>Online Orders</h1><p style="color:var(--muted);">Manage order progress after payment verification.</p></div></div>
+  <div id="ordersList"></div>
+</main></div>
+<script src="../data/products.js"></script><script src="../js/core/store.js"></script><script src="../js/core/utils.js"></script><script src="../js/core/db.js"></script><script>NexoraStore.seed();</script>
+<script>
+  const orderSteps = ['Pending', 'Confirmed', 'Packing', 'Rider Assigned', 'Out for Delivery', 'Delivered'];
+
+  function setOrderStatus(orderId, status) {
+    const orders = NexoraDB.orders();
+    const order = orders.find(item => item.id === orderId);
+
+    if (!order) return;
+
+    if (status !== 'Pending' && order.payment.status !== 'Paid') {
+      alert('Verify payment as Paid before confirming this order.');
+      renderOrders();
+      return;
+    }
+
+    order.orderStatus = status;
+    NexoraDB.saveOrders(orders);
+    renderOrders();
+  }
+
+  function renderOrders() {
+    const orders = NexoraDB.orders();
+    const list = document.getElementById('ordersList');
+
+    list.innerHTML = orders.length ? orders.map(order => `
+      <article class="card order-admin-card">
+        <div class="order-admin-top">
+          <div>
+            <span class="badge">${order.id}</span>
+            <h3>${order.customer.name} · ${order.customer.phone}</h3>
+            <p style="color:var(--muted);">${order.customer.township} · ${NexoraUtils.money(order.totals.total)}</p>
+          </div>
+          <div>
+            <span class="badge ${order.payment.status === 'Paid' ? 'success' : order.payment.status === 'Rejected' ? 'danger' : 'warn'}">${order.payment.status}</span>
+          </div>
+        </div>
+
+        <select onchange="setOrderStatus('${order.id}', this.value)" style="margin-top:12px; max-width:260px;">
+          ${orderSteps.map(step => `<option ${step === order.orderStatus ? 'selected' : ''}>${step}</option>`).join('')}
+        </select>
+      </article>
+    `).join('') : '<div class="card panel">No online orders yet.</div>';
+  }
+
+  renderOrders();
+</script>
+</body></html>

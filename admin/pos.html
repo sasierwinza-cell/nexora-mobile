@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>POS — Nexora Admin</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <a class="brand" href="dashboard.html">
+      <img src="../assets/logo/nexora-logo.png" alt="Nexora">
+      <span>Nexora</span>
+    </a>
+
+    <nav class="admin-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a class="active" href="pos.html">POS</a>
+      <a href="orders.html">Online Orders</a>
+      <a href="payments.html">Payment Verification</a>
+      <a href="payment-settings.html">Payment Settings</a>
+      <a href="products.html">Products / Promotions</a>
+      <a href="inventory.html">Inventory</a>
+      <a href="delivery.html">Delivery</a>
+      <a href="warranty.html">IMEI / Warranty</a>
+      <a href="returns.html">Returns / Refunds</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="reports.html">Reports</a>
+    </nav>
+
+    <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">
+      View Store ↗
+    </a>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-head">
+      <div>
+        <span class="admin-eyebrow">MANAGER COUNTER</span>
+        <h1>Point of Sale</h1>
+        <p style="color:var(--muted);">
+          Variant-aware stock, manual discount, IMEI registration and instant receipt.
+        </p>
+      </div>
+    </div>
+
+    <section class="pos-layout">
+      <div class="card panel pos-catalog-panel">
+        <div class="pos-search-head">
+          <div>
+            <span class="admin-eyebrow">CATALOG</span>
+            <h2>Sell by exact variant.</h2>
+          </div>
+          <span class="pos-stock-note">Stock updates automatically</span>
+        </div>
+
+        <div class="pos-search-box">
+          <span>⌕</span>
+          <input class="field" id="posSearch" placeholder="Search phone or accessory">
+        </div>
+
+        <div class="pos-category-hints">
+          <span>Phones</span>
+          <span>Audio</span>
+          <span>Chargers</span>
+          <span>Power</span>
+          <span>Watches</span>
+        </div>
+
+        <div class="pos-products" id="posProducts"></div>
+      </div>
+
+      <aside class="card panel pos-checkout-panel">
+        <div class="pos-current-head">
+          <div>
+            <span class="admin-eyebrow">CURRENT SALE</span>
+            <h3>Counter receipt</h3>
+          </div>
+          <span class="live-dot">LIVE</span>
+        </div>
+        <div id="posCart"></div>
+
+        <label>
+          Manual Discount
+          <div class="discount-input-row">
+            <select id="manualDiscountType">
+              <option value="none">No Extra Discount</option>
+              <option value="percent">Percent %</option>
+              <option value="fixed">Fixed MMK</option>
+            </select>
+
+            <input
+              class="field"
+              id="manualDiscountValue"
+              type="number"
+              min="0"
+              value="0"
+            >
+          </div>
+        </label>
+
+        <label>
+          Payment Method
+          <select id="posPayment">
+            <option>Cash</option>
+            <option>KBZPay</option>
+            <option>WavePay</option>
+          </select>
+        </label>
+
+        <label>
+          IMEI / Serial
+          <input
+            class="field"
+            id="posImei"
+            placeholder="Required when sale contains a phone"
+          >
+        </label>
+
+        <div class="pos-total-breakdown">
+          <div><span>Subtotal</span><strong id="posSubtotal">0 MMK</strong></div>
+          <div><span>Discount</span><strong id="posDiscount">0 MMK</strong></div>
+          <div class="total"><span>Total</span><strong id="posTotal">0 MMK</strong></div>
+        </div>
+
+        <button class="btn primary" id="completeSale" style="width:100%;">
+          Complete Sale & Print Receipt
+        </button>
+      </aside>
+    </section>
+  </main>
+</div>
+
+<div class="receipt-modal" id="receiptModal" hidden>
+  <div class="receipt-modal-backdrop" data-close-receipt></div>
+
+  <div class="receipt-sheet" id="receiptSheet">
+    <div id="receiptContent"></div>
+
+    <div class="receipt-actions">
+      <button class="btn primary" id="printReceipt" type="button">
+        Print Receipt
+      </button>
+
+      <button class="btn" data-close-receipt type="button">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="../data/products.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/customer/shop.js"></script>
+
+<script>
+  NexoraStore.seed();
+
+  let currentSale = [];
+
+  function variantAvailable(product, variant) {
+    if (!variant) {
+      return 0;
+    }
+
+    const reserved = NexoraDB.orders()
+      .filter(order => ['Confirmed', 'Packing', 'Rider Assigned', 'Out for Delivery'].includes(order.orderStatus))
+      .flatMap(order => order.items)
+      .filter(item => item.id === product.id && item.variantId === variant.id)
+      .reduce((sum, item) => sum + item.qty, 0);
+
+    return Math.max(0, variant.stock - reserved);
+  }
+
+  function renderPosProducts() {
+    const query = document.getElementById('posSearch').value.trim().toLowerCase();
+
+    const products = NexoraDB.products()
+      .filter(product => {
+        return (
+          product.name.toLowerCase().includes(query) ||
+          product.brand.toLowerCase().includes(query)
+        );
+      })
+      .slice(0, 24);
+
+    document.getElementById('posProducts').innerHTML = products.map(product => {
+      const variants = product.variants || [];
+      const firstAvailable = variants.find(variant => variantAvailable(product, variant) > 0);
+      const displayPrice = NexoraShop.finalPrice(product, firstAvailable?.price ?? product.price);
+
+      return `
+        <article class="pos-product-card">
+          <span class="kicker dark">${product.brand}</span>
+          <strong>${product.name}</strong>
+          <small>${product.category}</small>
+
+          <select data-pos-variant="${product.id}">
+            ${variants.map(variant => `
+              <option
+                value="${variant.id}"
+                ${variantAvailable(product, variant) <= 0 ? 'disabled' : ''}
+              >
+                ${variant.ram || ''}
+                ${variant.storage || ''}
+                ${variant.color || ''}
+                · ${variantAvailable(product, variant)} left
+              </option>
+            `).join('')}
+          </select>
+
+          <div class="pos-product-bottom">
+            <b>${NexoraUtils.money(displayPrice)}</b>
+            <button
+              class="btn primary"
+              type="button"
+              data-add-pos-product="${product.id}"
+              ${!firstAvailable ? 'disabled' : ''}
+            >
+              Add
+            </button>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    document.querySelectorAll('[data-add-pos-product]').forEach(button => {
+      button.addEventListener('click', () => {
+        addToSale(button.dataset.addPosProduct);
+      });
+    });
+  }
+
+  function addToSale(productId) {
+    const product = NexoraDB.products().find(item => item.id === productId);
+    const select = document.querySelector(`[data-pos-variant="${productId}"]`);
+    const variantId = select?.value;
+    const variant = product?.variants?.find(item => item.id === variantId);
+
+    if (!product || !variant || variantAvailable(product, variant) <= 0) {
+      NexoraUtils.toast('Selected variant is out of stock.');
+      return;
+    }
+
+    const existing = currentSale.find(item => {
+      return item.id === product.id && item.variantId === variant.id;
+    });
+
+    if (existing) {
+      if (existing.qty + 1 > variantAvailable(product, variant)) {
+        NexoraUtils.toast('Not enough variant stock.');
+        return;
+      }
+
+      existing.qty += 1;
+    } else {
+      currentSale.push({
+        id: product.id,
+        variantId: variant.id,
+        name: product.name,
+        brand: product.brand,
+        category: product.category,
+        variant: {
+          ram: variant.ram,
+          storage: variant.storage,
+          color: variant.color
+        },
+        originalPrice: variant.price,
+        price: NexoraShop.finalPrice(product, variant.price),
+        qty: 1,
+        gift: product.gift?.active ? product.gift : null
+      });
+    }
+
+    renderSale();
+  }
+
+  function subtotal() {
+    return currentSale.reduce((sum, item) => {
+      return sum + (item.price * item.qty);
+    }, 0);
+  }
+
+  function manualDiscountAmount() {
+    const value = Number(document.getElementById('manualDiscountValue').value || 0);
+    const type = document.getElementById('manualDiscountType').value;
+    const sub = subtotal();
+
+    if (type === 'percent') {
+      return Math.min(sub, Math.round(sub * value / 100));
+    }
+
+    if (type === 'fixed') {
+      return Math.min(sub, value);
+    }
+
+    return 0;
+  }
+
+  function finalTotal() {
+    return Math.max(0, subtotal() - manualDiscountAmount());
+  }
+
+  function renderSale() {
+    document.getElementById('posCart').innerHTML = currentSale.length
+      ? currentSale.map((item, index) => `
+          <div class="pos-cart-line enhanced">
+            <div>
+              <strong>${item.name}</strong>
+              <small>
+                ${item.variant.ram || ''}
+                ${item.variant.storage || ''}
+                ${item.variant.color || ''}
+              </small>
+              ${item.gift?.active && item.gift?.name
+                ? `<small class="gift-line">🎁 ${item.gift.name} × ${item.gift.qty || 1} FREE</small>`
+                : ''
+              }
+            </div>
+
+            <div>
+              <strong>${NexoraUtils.money(item.price * item.qty)}</strong>
+              <div class="pos-line-actions">
+                <button class="btn" type="button" onclick="changeSaleQty(${index}, -1)">−</button>
+                <span>${item.qty}</span>
+                <button class="btn" type="button" onclick="changeSaleQty(${index}, 1)">+</button>
+              </div>
+            </div>
+          </div>
+        `).join('')
+      : '<p style="color:var(--muted);">No items yet.</p>';
+
+    document.getElementById('posSubtotal').textContent = NexoraUtils.money(subtotal());
+    document.getElementById('posDiscount').textContent = `− ${NexoraUtils.money(manualDiscountAmount())}`;
+    document.getElementById('posTotal').textContent = NexoraUtils.money(finalTotal());
+  }
+
+  window.changeSaleQty = function(index, delta) {
+    const item = currentSale[index];
+    const product = NexoraDB.products().find(product => product.id === item.id);
+    const variant = product?.variants?.find(variant => variant.id === item.variantId);
+
+    if (delta > 0 && item.qty + 1 > variantAvailable(product, variant)) {
+      NexoraUtils.toast('Not enough variant stock.');
+      return;
+    }
+
+    item.qty += delta;
+
+    if (item.qty <= 0) {
+      currentSale.splice(index, 1);
+    }
+
+    renderSale();
+  };
+
+  function registerImei(sale, imei) {
+    if (!imei) {
+      return;
+    }
+
+    const phoneLine = sale.items.find(item => item.category === 'Phones');
+
+    if (!phoneLine) {
+      return;
+    }
+
+    const devices = NexoraDB.devices();
+    const purchaseDate = new Date();
+    const product = NexoraDB.products().find(item => item.id === phoneLine.id);
+    const expiry = new Date(purchaseDate);
+    expiry.setMonth(expiry.getMonth() + Number(product?.warrantyMonths || 12));
+
+    devices.unshift({
+      imei,
+      productId: phoneLine.id,
+      variantId: phoneLine.variantId,
+      model: phoneLine.name,
+      variant: phoneLine.variant,
+      saleId: sale.id,
+      orderId: '',
+      status: 'Sold',
+      soldAt: purchaseDate.toISOString(),
+      warrantyExpiry: expiry.toISOString()
+    });
+
+    NexoraDB.saveDevices(devices);
+  }
+
+  function showReceipt(sale) {
+    document.getElementById('receiptContent').innerHTML = `
+      <div class="receipt-brand">
+        <img src="../assets/logo/nexora-logo.png" alt="Nexora">
+        <div>
+          <strong>NEXORA MOBILE</strong>
+          <span>Official Sales Receipt</span>
+        </div>
+      </div>
+
+      <div class="receipt-meta">
+        <span>Receipt</span><strong>${sale.id}</strong>
+        <span>Date</span><strong>${new Date(sale.createdAt).toLocaleString()}</strong>
+        <span>Payment</span><strong>${sale.payment}</strong>
+      </div>
+
+      <div class="receipt-lines">
+        ${sale.items.map(item => `
+          <div class="receipt-line">
+            <div>
+              <strong>${item.name}</strong>
+              <small>
+                ${item.variant.ram || ''}
+                ${item.variant.storage || ''}
+                ${item.variant.color || ''}
+                × ${item.qty}
+              </small>
+
+              ${item.gift?.active && item.gift?.name ? `
+                <small>Gift: ${item.gift.name} × ${item.gift.qty || 1} — 0 MMK</small>
+              ` : ''}
+            </div>
+
+            <strong>${NexoraUtils.money(item.price * item.qty)}</strong>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="receipt-meta">
+        <span>Subtotal</span><strong>${NexoraUtils.money(sale.subtotal)}</strong>
+        <span>Discount</span><strong>− ${NexoraUtils.money(sale.discount)}</strong>
+        <span>Total</span><strong>${NexoraUtils.money(sale.total)}</strong>
+        <span>IMEI / Serial</span><strong>${sale.imei || '—'}</strong>
+        <span>Warranty</span><strong>${sale.warrantyText}</strong>
+      </div>
+
+      <p class="receipt-thanks">
+        Thank you for shopping with Nexora Mobile.
+      </p>
+    `;
+
+    document.getElementById('receiptModal').hidden = false;
+  }
+
+  document.getElementById('posSearch').addEventListener('input', renderPosProducts);
+  document.getElementById('manualDiscountType').addEventListener('change', renderSale);
+  document.getElementById('manualDiscountValue').addEventListener('input', renderSale);
+
+  document.getElementById('completeSale').addEventListener('click', () => {
+    if (!currentSale.length) {
+      NexoraUtils.toast('Add products first.');
+      return;
+    }
+
+    const containsPhone = currentSale.some(item => item.category === 'Phones');
+    const imei = document.getElementById('posImei').value.trim();
+
+    if (containsPhone && !imei) {
+      NexoraUtils.toast('Enter IMEI / Serial for the phone sale.');
+      return;
+    }
+
+    const products = NexoraDB.products();
+
+    for (const line of currentSale) {
+      const product = products.find(item => item.id === line.id);
+      const variant = product?.variants?.find(item => item.id === line.variantId);
+
+      if (!variant || variantAvailable(product, variant) < line.qty) {
+        NexoraUtils.toast('Stock changed. Please check selected variant.');
+        return;
+      }
+
+      variant.stock -= line.qty;
+      product.stock = product.variants.reduce((sum, item) => sum + item.stock, 0);
+    }
+
+    NexoraDB.saveProducts(products);
+
+    const firstPhone = currentSale.find(item => item.category === 'Phones');
+    const phoneProduct = firstPhone
+      ? products.find(item => item.id === firstPhone.id)
+      : null;
+
+    const sale = {
+      id: NexoraUtils.makeId('POS'),
+      createdAt: new Date().toISOString(),
+      items: JSON.parse(JSON.stringify(currentSale)),
+      subtotal: subtotal(),
+      discount: manualDiscountAmount(),
+      total: finalTotal(),
+      payment: document.getElementById('posPayment').value,
+      imei,
+      warrantyText: firstPhone
+        ? `${phoneProduct?.warrantyMonths || 12} months`
+        : 'Accessory warranty per item'
+    };
+
+    const sales = NexoraDB.sales();
+    sales.unshift(sale);
+    NexoraDB.saveSales(sales);
+
+    registerImei(sale, imei);
+    showReceipt(sale);
+
+    currentSale = [];
+    document.getElementById('posImei').value = '';
+    document.getElementById('manualDiscountType').value = 'none';
+    document.getElementById('manualDiscountValue').value = '0';
+
+    renderPosProducts();
+    renderSale();
+  });
+
+  document.querySelectorAll('[data-close-receipt]').forEach(element => {
+    element.addEventListener('click', () => {
+      document.getElementById('receiptModal').hidden = true;
+    });
+  });
+
+  document.getElementById('printReceipt').addEventListener('click', () => {
+    window.print();
+  });
+
+  renderPosProducts();
+  renderSale();
+</script>
+</body>
+</html>

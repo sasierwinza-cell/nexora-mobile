@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phones & Accessories — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/customer.css">
+</head>
+<body class="showroom-page">
+<div data-nexora-nav></div>
+
+<main class="container">
+  <section class="showroom-intro">
+    <div>
+      <span class="kicker dark">NEXORA SHOWROOM</span>
+      <h1 id="showroomTitle">Find your next phone.</h1>
+      <p id="showroomSubtitle">
+        Switch brands without scrolling through endless repeated sections.
+      </p>
+    </div>
+
+    <a class="showroom-compare-link" href="compare.html">
+      <span>Compare</span>
+      <strong>Phones side by side ↗</strong>
+    </a>
+  </section>
+
+  <section id="phoneMode">
+    <div class="brand-switcher-shell">
+      <div class="brand-switcher" id="mainBrandTabs">
+        <button class="brand-tab active" data-brand="Apple">
+          <span>01</span><strong>Apple</strong><small>Pro / Standard</small>
+        </button>
+        <button class="brand-tab" data-brand="Samsung">
+          <span>02</span><strong>Samsung</strong><small>S / Z / A</small>
+        </button>
+        <button class="brand-tab" data-brand="vivo">
+          <span>03</span><strong>vivo</strong><small>X / V / Y</small>
+        </button>
+      </div>
+    </div>
+
+    <section id="mainBrandStage"></section>
+
+    <section class="more-brands-section">
+      <div class="section-heading compact">
+        <div>
+          <span class="kicker dark">MORE BRANDS</span>
+          <h2>Jump in, don’t scroll forever.</h2>
+        </div>
+        <div class="rail-buttons">
+          <button class="rail-btn" id="brandRailPrev" aria-label="Previous">←</button>
+          <button class="rail-btn" id="brandRailNext" aria-label="Next">→</button>
+        </div>
+      </div>
+
+      <div class="more-brand-rail" id="moreBrandRail"></div>
+      <div id="compactBrandStage"></div>
+    </section>
+  </section>
+
+  <section id="accessoryMode" hidden>
+    <div class="accessory-command">
+      <div class="accessory-command-copy">
+        <span class="kicker dark">ACCESSORIES</span>
+        <h2>Everything around your phone.</h2>
+        <p>Pick a category. Only that collection opens, keeping the page compact.</p>
+      </div>
+
+      <div class="accessory-category-tabs" id="accessoryTabs"></div>
+    </div>
+
+    <div class="accessory-showcase" id="accessoryStage"></div>
+  </section>
+</main>
+
+<div data-nexora-footer></div>
+
+<script src="../data/products.js"></script>
+<script src="../data/delivery.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/core/layout.js"></script>
+<script src="../js/customer/shop.js"></script>
+
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('../');
+
+  const allProducts = NexoraDB.products();
+  const phoneProducts = allProducts.filter(product => product.category === 'Phones');
+  const accessoryProducts = allProducts.filter(product => product.category !== 'Phones');
+
+  const mainBrands = ['Apple', 'Samsung', 'vivo'];
+  const moreBrands = [...new Set(phoneProducts.map(product => product.brand))]
+    .filter(brand => !mainBrands.includes(brand));
+
+  const accessoryCategories = [...new Set(accessoryProducts.map(product => product.category))];
+
+  let activeBrand = NexoraUtils.param('brand') || 'Apple';
+  let compactBrand = moreBrands[0];
+  let activeAccessory = NexoraUtils.param('category');
+
+  function money(product) {
+    const variant = product.variants?.find(item => item.stock > 0) || product.variants?.[0];
+    return NexoraUtils.money(NexoraShop.finalPrice(product, variant?.price ?? product.price));
+  }
+
+  function availableStock(product) {
+    return (product.variants || []).reduce((sum, variant) => sum + Number(variant.stock || 0), 0);
+  }
+
+  function productLink(product) {
+    return `product-detail.html?id=${encodeURIComponent(product.id)}`;
+  }
+
+  function phoneMock(product, className = '') {
+    return `
+      <div class="editorial-phone ${className}">
+        <div class="editorial-phone-screen"></div>
+        <div class="editorial-camera">
+          <i></i><i></i><i></i>
+        </div>
+        <span>${product.brand}</span>
+      </div>
+    `;
+  }
+
+  function appleLayout(items) {
+    const hero = items[0];
+    const support = items.slice(1, 3);
+    const rail = items.slice(3);
+
+    return `
+      <article class="brand-editorial apple-editorial">
+        <div class="brand-editorial-copy">
+          <span class="edition-label">APPLE / PRO SERIES</span>
+          <h2>${hero.name}</h2>
+          <p>Minimal, focused, premium. Choose the exact storage and color on the product page.</p>
+          <div class="edition-price">${money(hero)}</div>
+          <div class="edition-actions">
+            <a class="btn light" href="${productLink(hero)}">Explore flagship</a>
+            <button class="btn ghost-light" onclick="NexoraShop.toggleCompare('${hero.id}')">+ Compare</button>
+          </div>
+        </div>
+
+        <div class="apple-device-stage">
+          ${phoneMock(hero, 'apple-main-phone')}
+          <div class="floating-data">
+            <small>AVAILABLE STOCK</small>
+            <strong>${availableStock(hero)}</strong>
+          </div>
+        </div>
+
+        <div class="apple-support-strip">
+          ${support.map(product => `
+            <a href="${productLink(product)}" class="apple-support-card">
+              <div>
+                <small>${product.series || 'iPhone'}</small>
+                <strong>${product.name}</strong>
+                <span>${money(product)}</span>
+              </div>
+              ${phoneMock(product, 'mini-editorial-phone')}
+            </a>
+          `).join('')}
+        </div>
+      </article>
+
+      ${rail.length ? `
+        <div class="model-rail-shell">
+          <div class="model-rail-label">
+            <strong>More iPhone</strong>
+            <span>Swipe →</span>
+          </div>
+          <div class="model-rail">
+            ${rail.map(product => compactProductCard(product)).join('')}
+          </div>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  function samsungLayout(items) {
+    const groups = {
+      S: items.filter(product => /(^|\s)S\d|Ultra/i.test(product.name)),
+      Z: items.filter(product => /Fold|Flip|\bZ\b/i.test(product.name)),
+      A: items.filter(product => /\bA\d/i.test(product.name))
+    };
+
+    const fallback = items.filter(product => !Object.values(groups).flat().includes(product));
+    if (fallback.length) {
+      groups.S.push(...fallback);
+    }
+
+    const hero = groups.S[0] || items[0];
+
+    return `
+      <article class="brand-editorial samsung-editorial">
+        <div class="samsung-topline">
+          <div>
+            <span class="edition-label">SAMSUNG GALAXY</span>
+            <h2>One Galaxy. Three ways in.</h2>
+          </div>
+          <a class="btn" href="${productLink(hero)}">View ${hero.name}</a>
+        </div>
+
+        <div class="galaxy-series-grid">
+          ${['S','Z','A'].map((series, index) => {
+            const list = groups[series];
+            const product = list[0] || items[index] || hero;
+            return `
+              <button class="galaxy-series-card series-${series.toLowerCase()}" data-series="${series}">
+                <span>${series} SERIES</span>
+                <strong>${series === 'S' ? 'Flagship' : series === 'Z' ? 'Foldables' : 'Everyday Galaxy'}</strong>
+                <small>${list.length || 0} models</small>
+                ${phoneMock(product, `galaxy-${series.toLowerCase()}`)}
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <div class="samsung-model-rail" id="samsungSeriesRail">
+          ${(groups.S.length ? groups.S : items).map(product => compactProductCard(product)).join('')}
+        </div>
+      </article>
+    `;
+  }
+
+  function vivoLayout(items) {
+    const x = items.filter(product => /\bX/i.test(product.name));
+    const v = items.filter(product => /\bV/i.test(product.name));
+    const y = items.filter(product => /\bY/i.test(product.name));
+    const hero = x[0] || items[0];
+
+    return `
+      <article class="brand-editorial vivo-editorial">
+        <div class="vivo-gradient-orb"></div>
+
+        <div class="vivo-copy">
+          <span class="edition-label">VIVO / COLOR IN MOTION</span>
+          <h2>${hero.name}</h2>
+          <p>Photography-first design with a lighter, more expressive showroom rhythm.</p>
+          <a class="btn primary" href="${productLink(hero)}">Discover X Series</a>
+        </div>
+
+        <div class="vivo-device-cluster">
+          ${phoneMock(hero, 'vivo-phone-one')}
+          ${items[1] ? phoneMock(items[1], 'vivo-phone-two') : ''}
+        </div>
+
+        <div class="vivo-series-row">
+          ${[
+            ['X', x, 'Imaging flagship'],
+            ['V', v, 'Style & portrait'],
+            ['Y', y, 'Everyday value']
+          ].map(([name, list, description]) => `
+            <button class="vivo-series-pill" data-vivo-series="${name}">
+              <strong>${name} Series</strong>
+              <span>${description}</span>
+              <small>${list.length} models ↗</small>
+            </button>
+          `).join('')}
+        </div>
+
+        <div class="model-rail vivo-model-rail" id="vivoSeriesRail">
+          ${(x.length ? x : items).map(product => compactProductCard(product)).join('')}
+        </div>
+      </article>
+    `;
+  }
+
+  function compactProductCard(product) {
+    const stock = availableStock(product);
+
+    return `
+      <a class="compact-model-card" href="${productLink(product)}">
+        <div class="compact-model-art">
+          ${phoneMock(product, 'compact-card-phone')}
+        </div>
+        <span>${product.brand}</span>
+        <strong>${product.name}</strong>
+        <div class="compact-model-bottom">
+          <b>${money(product)}</b>
+          <small class="${stock <= 5 ? 'low' : ''}">${stock} stock</small>
+        </div>
+      </a>
+    `;
+  }
+
+  function renderMainBrand() {
+    if (!mainBrands.includes(activeBrand)) {
+      activeBrand = 'Apple';
+    }
+
+    document.querySelectorAll('[data-brand]').forEach(button => {
+      button.classList.toggle('active', button.dataset.brand === activeBrand);
+    });
+
+    const items = phoneProducts.filter(product => product.brand === activeBrand);
+    const stage = document.getElementById('mainBrandStage');
+
+    if (activeBrand === 'Apple') {
+      stage.innerHTML = appleLayout(items);
+    } else if (activeBrand === 'Samsung') {
+      stage.innerHTML = samsungLayout(items);
+      bindSamsungSeries(items);
+    } else {
+      stage.innerHTML = vivoLayout(items);
+      bindVivoSeries(items);
+    }
+  }
+
+  function bindSamsungSeries(items) {
+    const groups = {
+      S: items.filter(product => /(^|\s)S\d|Ultra/i.test(product.name)),
+      Z: items.filter(product => /Fold|Flip|\bZ\b/i.test(product.name)),
+      A: items.filter(product => /\bA\d/i.test(product.name))
+    };
+
+    document.querySelectorAll('[data-series]').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('[data-series]').forEach(item => item.classList.remove('active'));
+        button.classList.add('active');
+
+        const list = groups[button.dataset.series];
+        document.getElementById('samsungSeriesRail').innerHTML =
+          (list.length ? list : items).map(product => compactProductCard(product)).join('');
+      });
+    });
+  }
+
+  function bindVivoSeries(items) {
+    const groups = {
+      X: items.filter(product => /\bX/i.test(product.name)),
+      V: items.filter(product => /\bV/i.test(product.name)),
+      Y: items.filter(product => /\bY/i.test(product.name))
+    };
+
+    document.querySelectorAll('[data-vivo-series]').forEach(button => {
+      button.addEventListener('click', () => {
+        const list = groups[button.dataset.vivoSeries];
+        document.getElementById('vivoSeriesRail').innerHTML =
+          (list.length ? list : items).map(product => compactProductCard(product)).join('');
+      });
+    });
+  }
+
+  function renderMoreBrands() {
+    document.getElementById('moreBrandRail').innerHTML = moreBrands.map(brand => `
+      <button class="more-brand-chip ${brand === compactBrand ? 'active' : ''}" data-more-brand="${brand}">
+        <strong>${brand}</strong>
+        <span>${phoneProducts.filter(product => product.brand === brand).length} models</span>
+      </button>
+    `).join('');
+
+    document.querySelectorAll('[data-more-brand]').forEach(button => {
+      button.addEventListener('click', () => {
+        compactBrand = button.dataset.moreBrand;
+        renderMoreBrands();
+        renderCompactBrand();
+      });
+    });
+  }
+
+  function renderCompactBrand() {
+    const items = phoneProducts.filter(product => product.brand === compactBrand);
+    const featured = items[0];
+
+    document.getElementById('compactBrandStage').innerHTML = `
+      <article class="compact-brand-showcase">
+        <div class="compact-brand-feature">
+          <div>
+            <span class="edition-label">${compactBrand.toUpperCase()}</span>
+            <h3>${featured?.name || compactBrand}</h3>
+            <p>${items.length} selected models. Browse horizontally instead of another long page section.</p>
+          </div>
+          ${featured ? phoneMock(featured, 'compact-feature-phone') : ''}
+        </div>
+
+        <div class="model-rail">
+          ${items.map(product => compactProductCard(product)).join('')}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderAccessories() {
+    const chosen = accessoryCategories.includes(activeAccessory)
+      ? activeAccessory
+      : accessoryCategories[0];
+
+    activeAccessory = chosen;
+
+    document.getElementById('accessoryTabs').innerHTML = accessoryCategories.map(category => `
+      <button
+        class="accessory-tab ${category === activeAccessory ? 'active' : ''}"
+        data-accessory-category="${category}"
+      >
+        ${category}
+      </button>
+    `).join('');
+
+    document.querySelectorAll('[data-accessory-category]').forEach(button => {
+      button.addEventListener('click', () => {
+        activeAccessory = button.dataset.accessoryCategory;
+        renderAccessories();
+      });
+    });
+
+    const items = accessoryProducts.filter(product => product.category === activeAccessory);
+
+    document.getElementById('accessoryStage').innerHTML = `
+      <div class="accessory-feature-card">
+        <div>
+          <span class="edition-label">${activeAccessory.toUpperCase()}</span>
+          <h3>${items[0]?.name || activeAccessory}</h3>
+          <p>${items.length} products in this collection.</p>
+        </div>
+        <div class="accessory-orbit"><i></i><i></i><i></i></div>
+      </div>
+
+      <div class="accessory-rail">
+        ${items.map(product => `
+          <a class="accessory-product-card" href="${productLink(product)}">
+            <div class="accessory-product-art">
+              <span>${product.category}</span>
+            </div>
+            <small>${product.brand}</small>
+            <strong>${product.name}</strong>
+            <div>
+              <b>${money(product)}</b>
+              <span>${availableStock(product)} stock</span>
+            </div>
+          </a>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  const categoryQuery = NexoraUtils.param('category');
+  const isAccessoryMode = categoryQuery && categoryQuery !== 'Phones';
+
+  if (isAccessoryMode) {
+    document.getElementById('phoneMode').hidden = true;
+    document.getElementById('accessoryMode').hidden = false;
+    document.getElementById('showroomTitle').textContent = categoryQuery;
+    document.getElementById('showroomSubtitle').textContent =
+      'A focused collection — no endless mixed catalog.';
+    activeAccessory = categoryQuery;
+    renderAccessories();
+  } else {
+    document.getElementById('phoneMode').hidden = false;
+    document.getElementById('accessoryMode').hidden = true;
+
+    if (mainBrands.includes(NexoraUtils.param('brand'))) {
+      activeBrand = NexoraUtils.param('brand');
+    } else if (moreBrands.includes(NexoraUtils.param('brand'))) {
+      compactBrand = NexoraUtils.param('brand');
+    }
+
+    document.querySelectorAll('[data-brand]').forEach(button => {
+      button.addEventListener('click', () => {
+        activeBrand = button.dataset.brand;
+        renderMainBrand();
+      });
+    });
+
+    document.getElementById('brandRailPrev').addEventListener('click', () => {
+      document.getElementById('moreBrandRail').scrollBy({ left: -320, behavior: 'smooth' });
+    });
+
+    document.getElementById('brandRailNext').addEventListener('click', () => {
+      document.getElementById('moreBrandRail').scrollBy({ left: 320, behavior: 'smooth' });
+    });
+
+    renderMainBrand();
+    renderMoreBrands();
+    renderCompactBrand();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Products & Promotions — Nexora Admin</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <a class="brand" href="dashboard.html">
+      <img src="../assets/logo/nexora-logo.png" alt="Nexora">
+      <span>Nexora</span>
+    </a>
+
+    <nav class="admin-nav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="pos.html">POS</a>
+      <a href="orders.html">Online Orders</a>
+      <a href="payments.html">Payment Verification</a>
+      <a href="payment-settings.html">Payment Settings</a>
+      <a class="active" href="products.html">Products / Promotions</a>
+      <a href="inventory.html">Inventory</a>
+      <a href="delivery.html">Delivery</a>
+      <a href="warranty.html">IMEI / Warranty</a>
+      <a href="returns.html">Returns / Refunds</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="reports.html">Reports</a>
+    </nav>
+
+    <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">
+      View Store ↗
+    </a>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-head">
+      <div>
+        <span class="admin-eyebrow">CATALOG CONTROL</span>
+        <h1>Products & Promotions</h1>
+        <p style="color:var(--muted);">
+          Manage discounts and free gifts without editing source code.
+        </p>
+      </div>
+    </div>
+
+    <div class="product-admin-grid">
+      <section class="card panel product-admin-list">
+        <input class="field" id="productSearch" placeholder="Search product...">
+        <div id="productList"></div>
+      </section>
+
+      <section class="card panel promotion-editor" id="promotionEditor">
+        <div class="empty-state">Select a product to edit promotion settings.</div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="../data/products.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+
+<script>
+  NexoraStore.seed();
+
+  let selectedId = null;
+
+  function renderList() {
+    const query = document.getElementById('productSearch').value.trim().toLowerCase();
+
+    const items = NexoraDB.products().filter(product => {
+      return (
+        product.name.toLowerCase().includes(query) ||
+        product.brand.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query)
+      );
+    });
+
+    document.getElementById('productList').innerHTML = items.map(product => `
+      <button
+        class="product-admin-row ${selectedId === product.id ? 'active' : ''}"
+        type="button"
+        data-product-id="${product.id}"
+      >
+        <div>
+          <strong>${product.name}</strong>
+          <small>${product.brand} · ${product.category}</small>
+        </div>
+
+        <div>
+          ${product.promoActive ? '<span class="badge success">Promo</span>' : ''}
+          ${product.gift?.active ? '<span class="badge">Gift</span>' : ''}
+        </div>
+      </button>
+    `).join('');
+
+    document.querySelectorAll('[data-product-id]').forEach(button => {
+      button.addEventListener('click', () => {
+        selectedId = button.dataset.productId;
+        renderList();
+        renderEditor();
+      });
+    });
+  }
+
+  function renderEditor() {
+    const product = NexoraDB.products().find(item => item.id === selectedId);
+
+    if (!product) {
+      return;
+    }
+
+    document.getElementById('promotionEditor').innerHTML = `
+      <span class="kicker dark">${product.brand} · ${product.category}</span>
+      <h2>${product.name}</h2>
+      <p class="muted">${product.variants?.length || 0} variants · Total stock ${product.stock}</p>
+
+      <form id="promotionForm">
+        <label class="setting-toggle">
+          <input type="checkbox" id="promoActive" ${product.promoActive ? 'checked' : ''}>
+          <span>Promotion Active</span>
+        </label>
+
+        <label>
+          Discount Type
+          <select id="discountType">
+            <option value="none" ${product.discountType === 'none' ? 'selected' : ''}>No Discount</option>
+            <option value="percent" ${product.discountType === 'percent' ? 'selected' : ''}>Percentage (%)</option>
+            <option value="fixed" ${product.discountType === 'fixed' ? 'selected' : ''}>Fixed MMK</option>
+          </select>
+        </label>
+
+        <label>
+          Discount Value
+          <input
+            class="field"
+            id="discountValue"
+            type="number"
+            min="0"
+            value="${product.discountValue || 0}"
+          >
+        </label>
+
+        <hr>
+
+        <label class="setting-toggle">
+          <input type="checkbox" id="giftActive" ${product.gift?.active ? 'checked' : ''}>
+          <span>Free Gift Active</span>
+        </label>
+
+        <label>
+          Gift Name
+          <input
+            class="field"
+            id="giftName"
+            value="${product.gift?.name || ''}"
+            placeholder="e.g. Clear Case"
+          >
+        </label>
+
+        <label>
+          Gift Quantity
+          <input
+            class="field"
+            id="giftQty"
+            type="number"
+            min="0"
+            value="${product.gift?.qty || 0}"
+          >
+        </label>
+
+        <button class="btn primary" type="submit">
+          Save Product Promotion
+        </button>
+      </form>
+
+      <div class="variant-admin-preview">
+        <h3>Variant Stock</h3>
+        ${(product.variants || []).map(variant => `
+          <div>
+            <span>
+              ${variant.ram || ''}
+              ${variant.storage || ''}
+              ${variant.color || ''}
+            </span>
+            <strong>${variant.stock}</strong>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    document.getElementById('promotionForm').addEventListener('submit', event => {
+      event.preventDefault();
+
+      const products = NexoraDB.products();
+      const target = products.find(item => item.id === selectedId);
+
+      target.promoActive = document.getElementById('promoActive').checked;
+      target.discountType = document.getElementById('discountType').value;
+      target.discountValue = Number(document.getElementById('discountValue').value || 0);
+      target.gift = {
+        active: document.getElementById('giftActive').checked,
+        name: document.getElementById('giftName').value.trim(),
+        qty: Number(document.getElementById('giftQty').value || 0)
+      };
+
+      NexoraDB.saveProducts(products);
+      NexoraUtils.toast('Promotion settings saved.');
+      renderList();
+      renderEditor();
+    });
+  }
+
+  document.getElementById('productSearch').addEventListener('input', renderList);
+
+  renderList();
+</script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard — Nexora Admin</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <a class="brand" href="dashboard.html">
+      <img src="../assets/logo/nexora-logo.png" alt="Nexora">
+      <span>Nexora</span>
+    </a>
+
+    <nav class="admin-nav">
+      <a class="active" href="dashboard.html">Dashboard</a>
+      <a href="pos.html">POS</a>
+      <a href="orders.html">Online Orders</a>
+      <a href="payments.html">Payment Verification</a>
+      <a href="payment-settings.html">Payment Settings</a>
+      <a href="products.html">Products / Promotions</a>
+      <a href="inventory.html">Inventory</a>
+      <a href="delivery.html">Delivery</a>
+      <a href="warranty.html">IMEI / Warranty</a>
+      <a href="returns.html">Returns / Refunds</a>
+      <a href="expenses.html">Expenses</a>
+      <a href="reports.html">Reports</a>
+    </nav>
+
+    <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">View Store ↗</a>
+  </aside>
+
+  <main class="admin-main premium-admin-page">
+    <div class="admin-head premium-admin-head">
+      <div>
+        <span class="admin-eyebrow">CONTROL ROOM</span>
+        <h1>Good overview, fast action.</h1>
+        <p>Only what needs attention today — not another wall of tables.</p>
+      </div>
+
+      <div class="admin-head-actions">
+        <a class="btn" href="expenses.html">+ Expense</a>
+        <a class="btn primary" href="pos.html">Open POS</a>
+      </div>
+    </div>
+
+    <section class="dashboard-command-grid">
+      <article class="command-revenue-card">
+        <div class="command-card-top">
+          <span>REVENUE / TODAY</span>
+          <small id="todayTransactions">0 transactions</small>
+        </div>
+        <strong id="todayRevenue">0 MMK</strong>
+        <div class="revenue-sparkline" aria-hidden="true">
+          <i style="height:26%"></i><i style="height:48%"></i><i style="height:38%"></i>
+          <i style="height:72%"></i><i style="height:54%"></i><i style="height:84%"></i><i style="height:68%"></i>
+        </div>
+      </article>
+
+      <article class="command-stat-card">
+        <span>Pending online</span>
+        <strong id="pendingOrders">0</strong>
+        <a href="orders.html">Review orders →</a>
+      </article>
+
+      <article class="command-stat-card payment-stat">
+        <span>Proof to verify</span>
+        <strong id="pendingPayments">0</strong>
+        <a href="payments.html">Verify payment →</a>
+      </article>
+
+      <article class="command-stat-card expense-stat">
+        <span>Expenses / month</span>
+        <strong id="monthExpenses">0 MMK</strong>
+        <a href="expenses.html">Open expenses →</a>
+      </article>
+    </section>
+
+    <section class="dashboard-focus-grid">
+      <article class="card focus-panel low-stock-focus">
+        <div class="focus-panel-head">
+          <div>
+            <span class="admin-eyebrow">NEEDS ATTENTION</span>
+            <h2>Low-stock variants</h2>
+          </div>
+          <a href="inventory.html">All inventory ↗</a>
+        </div>
+        <div id="lowStockList"></div>
+      </article>
+
+      <article class="card focus-panel">
+        <div class="focus-panel-head">
+          <div>
+            <span class="admin-eyebrow">LATEST</span>
+            <h2>Recent activity</h2>
+          </div>
+          <a href="reports.html">Reports ↗</a>
+        </div>
+        <div id="recentActivity"></div>
+      </article>
+    </section>
+
+    <section class="quick-action-rail">
+      <a href="pos.html"><span>01</span><strong>New POS sale</strong><small>Sale → receipt → stock</small></a>
+      <a href="payments.html"><span>02</span><strong>Verify proof</strong><small>Paid or reject</small></a>
+      <a href="inventory.html"><span>03</span><strong>Adjust stock</strong><small>Variant-level control</small></a>
+      <a href="warranty.html"><span>04</span><strong>Find IMEI</strong><small>Warranty lookup</small></a>
+    </section>
+  </main>
+</div>
+
+<script src="../data/products.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+
+<script>
+  NexoraStore.seed();
+
+  const orders = NexoraDB.orders();
+  const sales = NexoraDB.sales();
+  const expenses = NexoraDB.expenses();
+  const products = NexoraDB.products();
+
+  const today = new Date().toISOString().slice(0, 10);
+  const month = new Date().toISOString().slice(0, 7);
+
+  const todaySales = sales.filter(sale => sale.createdAt?.slice(0, 10) === today);
+  const paidDeliveredOrders = orders.filter(order => {
+    return order.payment?.status === 'Paid' && order.createdAt?.slice(0, 10) === today;
+  });
+
+  const todayRevenue =
+    todaySales.reduce((sum, sale) => sum + Number(sale.total || 0), 0) +
+    paidDeliveredOrders.reduce((sum, order) => sum + Number(order.totals?.total || 0), 0);
+
+  document.getElementById('todayRevenue').textContent = NexoraUtils.money(todayRevenue);
+  document.getElementById('todayTransactions').textContent =
+    `${todaySales.length + paidDeliveredOrders.length} transactions`;
+
+  document.getElementById('pendingOrders').textContent =
+    orders.filter(order => order.orderStatus === 'Pending').length;
+
+  document.getElementById('pendingPayments').textContent =
+    orders.filter(order => order.payment?.status === 'Pending Verification').length;
+
+  const monthExpense = expenses
+    .filter(item => String(item.date || '').slice(0, 7) === month)
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  document.getElementById('monthExpenses').textContent = NexoraUtils.money(monthExpense);
+
+  const reservedMap = {};
+
+  orders
+    .filter(order => ['Confirmed', 'Packing', 'Rider Assigned', 'Out for Delivery'].includes(order.orderStatus))
+    .flatMap(order => order.items || [])
+    .forEach(item => {
+      const key = `${item.id}__${item.variantId}`;
+      reservedMap[key] = (reservedMap[key] || 0) + Number(item.qty || 0);
+    });
+
+  const lowVariants = products.flatMap(product => {
+    return (product.variants || []).map(variant => {
+      const reserved = reservedMap[`${product.id}__${variant.id}`] || 0;
+      return {
+        product,
+        variant,
+        available: Math.max(0, Number(variant.stock || 0) - reserved)
+      };
+    });
+  })
+  .filter(item => item.available <= 5)
+  .sort((a, b) => a.available - b.available)
+  .slice(0, 6);
+
+  document.getElementById('lowStockList').innerHTML = lowVariants.length
+    ? lowVariants.map(item => `
+        <a class="low-stock-command-row" href="inventory.html">
+          <div>
+            <strong>${item.product.name}</strong>
+            <span>
+              ${item.variant.ram || ''} ${item.variant.storage || ''} ${item.variant.color || ''}
+            </span>
+          </div>
+          <div>
+            <b>${item.available}</b>
+            <small>available</small>
+          </div>
+        </a>
+      `).join('')
+    : '<div class="empty-state">Stock levels look healthy.</div>';
+
+  const activity = [
+    ...sales.map(sale => ({
+      type: 'POS',
+      label: sale.id,
+      detail: NexoraUtils.money(sale.total || 0),
+      time: sale.createdAt
+    })),
+    ...orders.map(order => ({
+      type: 'ORDER',
+      label: order.id,
+      detail: `${order.orderStatus} · ${order.payment?.status || ''}`,
+      time: order.createdAt
+    })),
+    ...expenses.map(item => ({
+      type: 'EXP',
+      label: item.name,
+      detail: `− ${NexoraUtils.money(item.amount || 0)}`,
+      time: item.createdAt || item.date
+    }))
+  ]
+  .sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0))
+  .slice(0, 6);
+
+  document.getElementById('recentActivity').innerHTML = activity.length
+    ? activity.map(item => `
+        <div class="activity-command-row">
+          <span class="activity-type">${item.type}</span>
+          <div>
+            <strong>${item.label}</strong>
+            <small>${item.detail}</small>
+          </div>
+          <time>${item.time ? new Date(item.time).toLocaleDateString() : ''}</time>
+        </div>
+      `).join('')
+    : '<div class="empty-state">No activity yet.</div>';
+</script>
+</body>
+</html>

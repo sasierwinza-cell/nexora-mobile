@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brand Showroom — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/customer.css">
+</head>
+<body>
+<div data-nexora-nav></div>
+<main class="container">
+  <section class="page-head" style="padding-bottom: 14px;">
+    <div class="breadcrumb"><a href="../index.html">Home</a> / Brand Showroom</div>
+  </section>
+
+  <section class="brand-landing-hero">
+    <div style="position:relative; z-index:3; max-width: 640px;">
+      <span class="kicker">Nexora brand showroom</span>
+      <h1 id="brandTitle">Brand</h1>
+      <p id="brandIntro" style="color:#c8d1d6; max-width: 560px;"></p>
+      <a class="btn accent" href="#models">Explore models</a>
+    </div>
+    <div class="phone-render"></div>
+  </section>
+
+  <section class="section" id="models">
+    <div class="section-head">
+      <div>
+        <span class="kicker dark">Series</span>
+        <h2>Browse without the boring grid-first feeling.</h2>
+      </div>
+    </div>
+
+    <div class="series-rail" id="seriesRail"></div>
+    <div class="product-grid" id="brandGrid" style="margin-top: 18px;"></div>
+  </section>
+</main>
+
+<div data-nexora-footer></div>
+<a class="chat-fab" href="contact.html">Chat with Shop</a>
+
+<script src="../data/products.js"></script>
+<script src="../data/delivery.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/core/layout.js"></script>
+<script src="../js/customer/shop.js"></script>
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('../');
+</script>
+
+<script>
+  const brand = NexoraUtils.param('brand') || 'Apple';
+  const brandProducts = NexoraDB.products().filter(item => item.category === 'Phones' && item.brand === brand);
+  const series = [...new Set(brandProducts.map(item => item.series))];
+
+  document.getElementById('brandTitle').textContent = brand;
+  document.getElementById('brandIntro').textContent = `${brand} models are grouped by series, then shown as a curated showroom instead of one long unstructured list.`;
+
+  const seriesRail = document.getElementById('seriesRail');
+  const brandGrid = document.getElementById('brandGrid');
+
+  seriesRail.innerHTML = ['All', ...series].map((item, index) => `
+    <button class="series-btn ${index === 0 ? 'active' : ''}" data-series="${item}">${item}</button>
+  `).join('');
+
+  function render(selectedSeries = 'All') {
+    const filtered = selectedSeries === 'All'
+      ? brandProducts
+      : brandProducts.filter(item => item.series === selectedSeries);
+
+    brandGrid.innerHTML = filtered.map(item => NexoraShop.productCard(item)).join('');
+  }
+
+  seriesRail.addEventListener('click', event => {
+    const button = event.target.closest('.series-btn');
+    if (!button) return;
+
+    document.querySelectorAll('.series-btn').forEach(item => item.classList.remove('active'));
+    button.classList.add('active');
+    render(button.dataset.series);
+  });
+
+  render();
+</script>
+</body>
+</html>

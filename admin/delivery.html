@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Delivery — Nexora Admin</title><link rel="stylesheet" href="../css/base.css"><link rel="stylesheet" href="../css/admin.css"></head><body><div class="admin-shell"><aside class="admin-sidebar">
+      <a class="brand" href="dashboard.html"><img src="../assets/logo/nexora-logo.png" alt="Nexora"><span>Nexora</span></a>
+      <nav class="admin-nav"><a class="" href="dashboard.html">Dashboard</a><a class="" href="pos.html">POS</a><a class="" href="orders.html">Online Orders</a><a class="" href="payments.html">Payment Verification</a><a class="" href="payment-settings.html">Payment Settings</a><a class="" href="products.html">Products / Promotions</a><a class="" href="inventory.html">Inventory</a><a class="active" href="delivery.html">Delivery</a><a class="" href="warranty.html">IMEI / Warranty</a><a class="" href="returns.html">Returns / Refunds</a><a class="" href="reports.html">Reports</a></nav>
+      <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">View Store ↗</a>
+    </aside>
+<main class="admin-main">
+  <div class="admin-head"><div><h1>Delivery & Riders</h1><p style="color:var(--muted);">Detailed rider assignment, ETA and notes.</p></div></div>
+  <div id="deliveryList"></div>
+</main></div>
+<script src="../data/products.js"></script><script src="../js/core/store.js"></script><script src="../js/core/utils.js"></script><script src="../js/core/db.js"></script><script>NexoraStore.seed();</script>
+<script>
+  function saveDelivery(orderId) {
+    const orders = NexoraDB.orders();
+    const order = orders.find(item => item.id === orderId);
+    if (!order) return;
+
+    order.delivery.rider = document.getElementById(`rider-${orderId}`).value;
+    order.delivery.riderPhone = document.getElementById(`phone-${orderId}`).value;
+    order.delivery.eta = document.getElementById(`eta-${orderId}`).value;
+    order.delivery.notes = document.getElementById(`notes-${orderId}`).value;
+    order.delivery.assignedAt = new Date().toISOString();
+
+    if (order.delivery.rider && order.orderStatus === 'Packing') {
+      order.orderStatus = 'Rider Assigned';
+    }
+
+    NexoraDB.saveOrders(orders);
+    renderDelivery();
+  }
+
+  function renderDelivery() {
+    const orders = NexoraDB.orders().filter(order => order.payment.status === 'Paid');
+
+    document.getElementById('deliveryList').innerHTML = orders.length ? orders.map(order => `
+      <article class="card order-admin-card">
+        <span class="badge">${order.id}</span>
+        <h3>${order.customer.name} · ${order.customer.phone}</h3>
+        <p style="color:var(--muted);">${order.customer.address} · ${order.customer.township}</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <input class="field" id="rider-${order.id}" value="${order.delivery.rider || ''}" placeholder="Rider name">
+          <input class="field" id="phone-${order.id}" value="${order.delivery.riderPhone || ''}" placeholder="Rider phone">
+        </div>
+        <input class="field" id="eta-${order.id}" value="${order.delivery.eta || ''}" placeholder="Estimated delivery" style="margin-top:10px;">
+        <textarea id="notes-${order.id}" placeholder="Delivery notes" style="margin-top:10px;">${order.delivery.notes || ''}</textarea>
+        <button class="btn primary" onclick="saveDelivery('${order.id}')" style="margin-top:10px;">Save Delivery</button>
+      </article>
+    `).join('') : '<div class="card panel">No paid orders ready for delivery.</div>';
+  }
+
+  renderDelivery();
+</script>
+</body></html>

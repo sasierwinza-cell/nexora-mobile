@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Placed — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/customer.css">
+</head>
+
+<body>
+<div data-nexora-nav></div>
+
+<main class="container order-success-wrap">
+  <section class="order-success-card">
+    <div class="success-mark">✓</div>
+
+    <span class="kicker dark">ORDER RECEIVED</span>
+    <h1>Your order is safely recorded.</h1>
+
+    <p>
+      Save your Order ID. On this device, Nexora also keeps a recent-order shortcut
+      so you can recover it using your phone number.
+    </p>
+
+    <div class="order-id-display">
+      <span>Order ID</span>
+      <strong id="successOrderId">—</strong>
+
+      <button class="btn" id="copyOrderId" type="button">
+        Copy ID
+      </button>
+    </div>
+
+    <div class="success-actions">
+      <a class="btn primary" id="trackOrder" href="my-orders.html">
+        Track This Order
+      </a>
+
+      <a class="btn" href="phones.html">
+        Continue Shopping
+      </a>
+    </div>
+
+    <small>
+      Multi-device order recovery will work after the included Supabase setup is connected.
+    </small>
+  </section>
+</main>
+
+<div data-nexora-footer></div>
+
+<script src="../data/products.js"></script>
+<script src="../data/delivery.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/core/layout.js"></script>
+<script src="../js/customer/shop.js"></script>
+
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('../');
+
+  const orderId = NexoraUtils.param('id') || NexoraStore.get('nx_last_order', '');
+  const order = NexoraDB.orders().find(item => item.id === orderId);
+
+  document.getElementById('successOrderId').textContent = orderId || 'Not found';
+
+  if (orderId) {
+    document.getElementById('trackOrder').href = `my-orders.html?id=${encodeURIComponent(orderId)}`;
+  }
+
+  document.getElementById('copyOrderId').addEventListener('click', async () => {
+    if (!orderId) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(orderId);
+      NexoraUtils.toast('Order ID copied.');
+    } catch (error) {
+      window.prompt('Copy your Order ID:', orderId);
+    }
+  });
+</script>
+</body>
+</html>

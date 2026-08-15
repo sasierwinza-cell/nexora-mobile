@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cart — Nexora Mobile</title>
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/customer.css">
+</head>
+<body>
+<div data-nexora-nav></div>
+
+<main class="container">
+  <section class="page-head">
+    <div class="breadcrumb"><a href="../index.html">Home</a> / Cart</div>
+    <h1>Your Cart</h1>
+    <p>Selected variants, discounts and free gifts stay visible before checkout.</p>
+  </section>
+
+  <section class="cart-layout">
+    <div id="cartItems"></div>
+
+    <aside class="card cart-summary">
+      <span class="kicker dark">SUMMARY</span>
+      <h3>Order Total</h3>
+
+      <div class="summary-row">
+        <span>Subtotal</span>
+        <strong id="cartSubtotal">0 MMK</strong>
+      </div>
+
+      <div class="summary-row saving-row">
+        <span>You Save</span>
+        <strong id="cartSaving">0 MMK</strong>
+      </div>
+
+      <div class="summary-row total-row">
+        <span>Total</span>
+        <strong id="cartTotal">0 MMK</strong>
+      </div>
+
+      <a class="btn primary" href="checkout.html" style="width:100%; text-align:center;">
+        Continue to Checkout
+      </a>
+    </aside>
+  </section>
+</main>
+
+<div data-nexora-footer></div>
+
+<script src="../data/products.js"></script>
+<script src="../data/delivery.js"></script>
+<script src="../js/core/store.js"></script>
+<script src="../js/core/utils.js"></script>
+<script src="../js/core/db.js"></script>
+<script src="../js/core/layout.js"></script>
+<script src="../js/customer/shop.js"></script>
+
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('../');
+
+  function renderCart() {
+    const cart = NexoraStore.get('nx_cart', []);
+    const products = NexoraDB.products();
+
+    document.getElementById('cartItems').innerHTML = cart.length
+      ? cart.map((item, index) => {
+          const product = products.find(product => product.id === item.id);
+
+          return `
+            <article class="card cart-item">
+              <div class="cart-item-visual">
+                <div class="phone-visual small"></div>
+              </div>
+
+              <div class="cart-item-copy">
+                <span class="kicker dark">${item.brand || product?.brand || ''}</span>
+                <h3>${item.name}</h3>
+
+                <p>
+                  ${item.variant?.ram || ''}
+                  ${item.variant?.storage || ''}
+                  ${item.variant?.color || ''}
+                </p>
+
+                ${item.originalPrice > item.price ? `
+                  <div class="cart-discount-line">
+                    <span>${NexoraUtils.money(item.originalPrice)}</span>
+                    <strong>${NexoraUtils.money(item.price)}</strong>
+                  </div>
+                ` : `
+                  <strong>${NexoraUtils.money(item.price)}</strong>
+                `}
+
+                ${item.gift?.active && item.gift?.name ? `
+                  <div class="cart-gift">
+                    🎁 ${item.gift.name} × ${item.gift.qty || 1}
+                    <b>FREE · 0 MMK</b>
+                  </div>
+                ` : ''}
+              </div>
+
+              <div class="cart-quantity">
+                <button class="btn" type="button" onclick="changeQty(${index}, -1)">−</button>
+                <strong>${item.qty}</strong>
+                <button class="btn" type="button" onclick="changeQty(${index}, 1)">+</button>
+                <button class="btn danger-btn" type="button" onclick="removeItem(${index})">Remove</button>
+              </div>
+            </article>
+          `;
+        }).join('')
+      : '<div class="card empty-state">Your cart is empty.</div>';
+
+    const originalSubtotal = cart.reduce((sum, item) => {
+      return sum + (Number(item.originalPrice || item.price) * item.qty);
+    }, 0);
+
+    const total = cart.reduce((sum, item) => {
+      return sum + (Number(item.price) * item.qty);
+    }, 0);
+
+    const saving = Math.max(0, originalSubtotal - total);
+
+    document.getElementById('cartSubtotal').textContent = NexoraUtils.money(originalSubtotal);
+    document.getElementById('cartSaving').textContent = NexoraUtils.money(saving);
+    document.getElementById('cartTotal').textContent = NexoraUtils.money(total);
+
+    NexoraLayout.updateCartCount();
+  }
+
+  window.changeQty = function(index, delta) {
+    const cart = NexoraStore.get('nx_cart', []);
+    const item = cart[index];
+    const product = NexoraDB.products().find(product => product.id === item.id);
+    const variant = product?.variants?.find(variant => variant.id === item.variantId);
+
+    if (delta > 0 && variant && item.qty + 1 > variant.stock) {
+      NexoraUtils.toast('Not enough stock for this color/variant.');
+      return;
+    }
+
+    item.qty = Math.max(1, item.qty + delta);
+    NexoraStore.set('nx_cart', cart);
+    renderCart();
+  };
+
+  window.removeItem = function(index) {
+    const cart = NexoraStore.get('nx_cart', []);
+    cart.splice(index, 1);
+    NexoraStore.set('nx_cart', cart);
+    renderCart();
+  };
+
+  renderCart();
+</script>
+</body>
+</html>

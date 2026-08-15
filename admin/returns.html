@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Returns / Refunds — Nexora Admin</title><link rel="stylesheet" href="../css/base.css"><link rel="stylesheet" href="../css/admin.css"></head><body><div class="admin-shell"><aside class="admin-sidebar">
+      <a class="brand" href="dashboard.html"><img src="../assets/logo/nexora-logo.png" alt="Nexora"><span>Nexora</span></a>
+      <nav class="admin-nav"><a class="" href="dashboard.html">Dashboard</a><a class="" href="pos.html">POS</a><a class="" href="orders.html">Online Orders</a><a class="" href="payments.html">Payment Verification</a><a class="" href="payment-settings.html">Payment Settings</a><a class="" href="products.html">Products / Promotions</a><a class="" href="inventory.html">Inventory</a><a class="" href="delivery.html">Delivery</a><a class="" href="warranty.html">IMEI / Warranty</a><a class="active" href="returns.html">Returns / Refunds</a><a class="" href="reports.html">Reports</a></nav>
+      <a class="view-store-side" href="../index.html" target="_blank" rel="noopener">View Store ↗</a>
+    </aside>
+<main class="admin-main">
+  <div class="admin-head"><div><h1>Returns / Refunds</h1><p style="color:var(--muted);">Track customer cancellation, return and refund requests.</p></div></div>
+  <section class="card panel">
+    <div style="display:grid; grid-template-columns:1fr 1fr 1.5fr auto; gap:10px;">
+      <input class="field" id="returnOrder" placeholder="Order ID">
+      <select id="returnType"><option>Cancellation</option><option>Return</option><option>Refund</option></select>
+      <input class="field" id="returnReason" placeholder="Reason">
+      <button class="btn primary" id="addReturn">Add Request</button>
+    </div>
+  </section>
+  <div id="returnsList" style="margin-top:16px;"></div>
+</main></div>
+<script src="../data/products.js"></script><script src="../js/core/store.js"></script><script src="../js/core/utils.js"></script><script src="../js/core/db.js"></script><script>NexoraStore.seed();</script>
+<script>
+  function renderReturns() {
+    document.getElementById('returnsList').innerHTML = NexoraDB.returns().map(item => `
+      <article class="card order-admin-card">
+        <span class="badge">${item.id}</span>
+        <h3>${item.type} · ${item.orderId}</h3>
+        <p>${item.reason}</p>
+        <select onchange="setReturnStatus('${item.id}', this.value)">
+          <option ${item.status === 'Pending' ? 'selected' : ''}>Pending</option>
+          <option ${item.status === 'Approved' ? 'selected' : ''}>Approved</option>
+          <option ${item.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+          <option ${item.status === 'Completed' ? 'selected' : ''}>Completed</option>
+        </select>
+      </article>
+    `).join('') || '<div class="card panel">No return/refund requests.</div>';
+  }
+
+  window.setReturnStatus = function(id, status) {
+    const items = NexoraDB.returns();
+    const item = items.find(entry => entry.id === id);
+    if (!item) return;
+    item.status = status;
+    NexoraDB.saveReturns(items);
+    renderReturns();
+  };
+
+  document.getElementById('addReturn').addEventListener('click', () => {
+    const items = NexoraDB.returns();
+    items.unshift({
+      id: NexoraUtils.makeId('RT'),
+      orderId: document.getElementById('returnOrder').value.trim(),
+      type: document.getElementById('returnType').value,
+      reason: document.getElementById('returnReason').value.trim(),
+      status: 'Pending'
+    });
+    NexoraDB.saveReturns(items);
+    renderReturns();
+  });
+
+  renderReturns();
+</script>
+</body></html>

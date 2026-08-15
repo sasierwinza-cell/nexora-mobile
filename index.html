@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nexora Mobile</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/customer.css">
+</head>
+<body>
+<div data-nexora-nav></div>
+
+<main>
+  <section class="hero-wrap">
+    <div class="container hero">
+      <div class="hero-copy">
+        <span class="kicker">Nexora / Phone-first technology</span>
+        <h1>More than a phone shop.</h1>
+        <p>Discover flagship phones, compare what matters, choose the right variant and track everything from payment to delivery.</p>
+        <div class="hero-actions">
+          <a class="btn accent" href="pages/phones.html">Explore Phones</a>
+          <a class="btn ghost" href="pages/compare.html">Compare Models</a>
+        </div>
+      </div>
+
+      <div class="hero-stage">
+        <div class="floating-spec one"><strong>Smart Compare</strong><span>RAM · Storage · Camera · Price</span></div>
+        <div class="phone-render"></div>
+        <div class="floating-spec two"><strong>Stock Sync</strong><span>Online + POS inventory</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="marquee-shell">
+    <div class="marquee-track" id="accessoryMarquee"></div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <span class="kicker dark">Shop by brand</span>
+          <h2>Enter a brand showroom.</h2>
+        </div>
+        <p>Not a plain product grid. Apple, Samsung and vivo open into richer brand pages, while every other brand stays easy to browse.</p>
+      </div>
+
+      <div class="brand-showcase">
+        <a class="brand-card featured" href="pages/brand.html?brand=Apple">
+          <span class="badge">Featured showroom</span>
+          <h3>Apple</h3>
+          <p>Pro, standard and previous-generation iPhones arranged by series.</p>
+          <span class="brand-glyph">A</span>
+        </a>
+
+        <div class="brand-stack">
+          <a class="brand-card" href="pages/brand.html?brand=Samsung">
+            <span class="badge">Galaxy</span>
+            <h3>Samsung</h3>
+            <p>S, Z, A and M series.</p>
+            <span class="brand-glyph">S</span>
+          </a>
+
+          <a class="brand-card" href="pages/brand.html?brand=vivo">
+            <span class="badge">Camera-first</span>
+            <h3>vivo</h3>
+            <p>X, V and Y series.</p>
+            <span class="brand-glyph">V</span>
+          </a>
+        </div>
+
+        <div class="brand-stack" id="supportingBrands"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top: 0;">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <span class="kicker dark">Featured phones</span>
+          <h2>Editorial, not ordinary.</h2>
+        </div>
+        <a class="btn" href="pages/phones.html">View all phones</a>
+      </div>
+
+      <div class="feature-layout">
+        <article class="feature-hero">
+          <span class="badge">Flagship focus</span>
+          <h2 style="font-size: clamp(44px, 6vw, 76px); margin: 16px 0 10px;">iPhone 16 Pro Max</h2>
+          <p style="max-width: 460px; color: #c8d1d6;">Large product storytelling, premium spacing and one clear action instead of a wall of identical cards.</p>
+          <a class="btn accent" href="pages/product-detail.html?id=APL-16PM" style="margin-top: 18px;">Explore flagship</a>
+          <div class="phone-render"></div>
+        </article>
+
+        <div class="feature-side">
+          <article class="feature-card">
+            <span class="badge">Galaxy AI</span>
+            <h3 style="font-size: 32px; margin-bottom: 6px;">S25 Ultra</h3>
+            <p class="meta">Premium Android flagship.</p>
+            <a class="btn" href="pages/product-detail.html?id=SAM-S25U" style="margin-top: 18px;">View model</a>
+            <div class="halo"></div>
+          </article>
+
+          <article class="feature-card">
+            <span class="badge">ZEISS Camera</span>
+            <h3 style="font-size: 32px; margin-bottom: 6px;">vivo X200 Pro</h3>
+            <p class="meta">Photography-first performance.</p>
+            <a class="btn" href="pages/product-detail.html?id=VIV-X200P" style="margin-top: 18px;">View model</a>
+            <div class="halo"></div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <span class="kicker dark">Popular now</span>
+          <h2>Phones people compare.</h2>
+        </div>
+        <p>Fast Add-to-Cart and Compare actions, with deeper details one click away.</p>
+      </div>
+      <div class="product-grid" id="featuredGrid"></div>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top: 0;">
+    <div class="container contact-hero">
+      <span class="kicker">Need help choosing?</span>
+      <h2 style="font-size: clamp(42px, 6vw, 72px); margin: 14px 0 10px;">Talk to Nexora.</h2>
+      <p style="max-width: 620px; color: #c8d1d6;">Use Contact Us for shop details, opening hours, Messenger, Viber, Telegram or a direct message.</p>
+      <a class="btn accent" href="pages/contact.html" style="margin-top: 18px;">Contact Us</a>
+    </div>
+  </section>
+</main>
+
+<div data-nexora-footer></div>
+<a class="chat-fab" href="pages/contact.html">Chat with Shop</a>
+
+<script src="data/products.js"></script>
+<script src="data/delivery.js"></script>
+<script src="js/core/store.js"></script>
+<script src="js/core/utils.js"></script>
+<script src="js/core/db.js"></script>
+<script src="js/core/layout.js"></script>
+<script src="js/customer/shop.js"></script>
+<script>
+  NexoraStore.seed();
+  NexoraLayout.mount('');
+
+  const accessories = NexoraDB.products().filter(item => item.category !== 'Phones');
+  const repeated = [...accessories, ...accessories];
+
+  document.getElementById('accessoryMarquee').innerHTML = repeated.map(item => `
+    <a class="mini-tile" href="pages/phones.html?category=${encodeURIComponent(item.category)}">
+      <span class="mini-art"></span>
+      <span><strong>${item.category}</strong><br><small>${item.name}</small></span>
+    </a>
+  `).join('');
+
+  const support = ['Xiaomi', 'OPPO', 'Huawei', 'HONOR'];
+  document.getElementById('supportingBrands').innerHTML = support.map(brand => `
+    <a class="brand-card" href="pages/brand.html?brand=${encodeURIComponent(brand)}">
+      <span class="badge">Explore</span>
+      <h3>${brand}</h3>
+      <p>Curated models and variants.</p>
+      <span class="brand-glyph">${brand[0]}</span>
+    </a>
+  `).join('');
+
+  const featured = NexoraDB.products().filter(item => item.featured && item.category === 'Phones').slice(0, 8);
+  document.getElementById('featuredGrid').innerHTML = featured.map(item => NexoraShop.productCard(item, 'pages/')).join('');
+</script>
+</body>
+</html>
